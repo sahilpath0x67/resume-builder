@@ -1,42 +1,34 @@
-import Anthropic from '@anthropic-ai/sdk';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
-export async function POST(req: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    const { resume, jobDescription, companyName, hiringManager } = await req.json();
+    const { resume, jobDescription, companyName, hiringManager } = await request.json();
 
-    const prompt = `You are an expert cover letter writer. Write a compelling, personalized cover letter based on the resume and job description below.
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-2.5-flash-lite", 
+    });
 
-Resume:
-${JSON.stringify(resume, null, 2)}
-
-Job Description / Role:
-${jobDescription || 'Not provided — write a general cover letter for the role.'}
+    const prompt = `Write a concise, professional cover letter (3-4 short paragraphs) tailored to this job.
 
 Company: ${companyName || 'the company'}
 Hiring Manager: ${hiringManager || 'Hiring Manager'}
+Job Description: ${jobDescription}
 
-Instructions:
-- 3 paragraphs: hook/intro, why you're the fit (reference specific experience), closing with CTA
-- Confident but not arrogant tone
-- Reference specific achievements from the resume
-- Keep it under 300 words
-- Do NOT start with "I am writing to..."
+User's Resume:
+${JSON.stringify(resume, null, 2)}
 
-Return ONLY the cover letter text, no subject line, no JSON, no markdown.`;
+Make it enthusiastic, natural, and highlight the most relevant experience.`;
 
-    const message = await client.messages.create({
-      model: 'claude-opus-4-6',
-      max_tokens: 700,
-      messages: [{ role: 'user', content: prompt }],
-    });
+    const result = await model.generateContent(prompt);
+    const coverLetter = result.response.text().trim();
 
-    const text = message.content.map((b) => (b.type === 'text' ? b.text : '')).join('');
-    return NextResponse.json({ coverLetter: text });
-  } catch (err) {
-    console.error('Cover letter error:', err);
-    return NextResponse.json({ error: 'Failed to generate cover letter.' }, { status: 500 });
+    return Response.json({ coverLetter });
+
+  } catch (error: any) {
+    console.error(error);
+    return Response.json({ error: "Failed to generate cover letter" }, { status: 500 });
   }
 }

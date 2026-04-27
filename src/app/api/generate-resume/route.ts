@@ -1,65 +1,71 @@
-import Anthropic from '@anthropic-ai/sdk';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
-export async function POST(req: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    const data = await req.json();
+    const form = await request.json();
 
-    const prompt = `You are an expert professional resume writer with 15 years of experience helping candidates land jobs at top companies. Given the following user data, generate a polished, ATS-optimized resume.
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-2.5-flash-lite",   // Most reliable on free tier
+    });
 
-Instructions:
-- Write a compelling 2-3 sentence professional summary (even if one is provided, improve it)
-- Transform experience descriptions into strong, quantified bullet points starting with power verbs
-- Keep bullets concise and impactful (1 line each)
-- Organize skills into a clean list
-- If information is sparse, make professional improvements while staying true to the user's background
+    const systemPrompt = `You are an expert professional resume writer. 
+Your task is to create a clean, modern, ATS-friendly resume.
 
-User data:
-${JSON.stringify(data, null, 2)}
+**Important rules for experience bullets:**
+- Turn responsibilities into strong achievement statements
+- Start every bullet with an action verb (Led, Developed, Increased, Built, etc.)
+- Quantify achievements whenever possible (e.g., "Increased revenue by 35%", "Managed team of 8")
+- Keep each bullet to 1 line (max 100-120 characters)
+- Make them specific and impactful
 
-Respond ONLY with valid JSON, no markdown fences, no explanation. Use EXACTLY this structure:
+Output **ONLY** valid JSON with this exact structure (no extra text, no markdown):
+
 {
-  "name": "string",
-  "title": "string",
-  "email": "string",
-  "phone": "string",
-  "location": "string",
-  "linkedin": "string",
-  "summary": "string",
+  "name": string,
+  "jobTitle": string,
+  "contact": {
+    "email": string,
+    "phone": string,
+    "location": string,
+    "linkedin": string
+  },
+  "summary": string,
   "experience": [
     {
-      "company": "string",
-      "role": "string",
-      "period": "string",
-      "bullets": ["string", "string", "string"]
+      "company": string,
+      "role": string,
+      "dates": string,
+      "bullets": ["bullet 1", "bullet 2", "bullet 3", ...]
     }
   ],
   "education": [
     {
-      "institution": "string",
-      "degree": "string",
-      "period": "string"
+      "institution": string,
+      "degree": string,
+      "dates": string
     }
   ],
-  "skills": ["string"],
-  "achievements": ["string"]
+  "skills": string[]
 }`;
 
-    const message = await client.messages.create({
-      model: 'claude-opus-4-6',
-      max_tokens: 1500,
-      messages: [{ role: 'user', content: prompt }],
-    });
+    const userPrompt = `User's raw information:\n${JSON.stringify(form, null, 2)}`;
 
-    const raw = message.content.map((b) => (b.type === 'text' ? b.text : '')).join('');
-    const clean = raw.replace(/```json|```/g, '').trim();
-    const resume = JSON.parse(clean);
+    const result = await model.generateContent(`${systemPrompt}\n\n${userPrompt}`);
+    const text = result.response.text();
 
-    return NextResponse.json({ resume });
-  } catch (err) {
-    console.error('Resume generation error:', err);
-    return NextResponse.json({ error: 'Failed to generate resume. Check your API key.' }, { status: 500 });
+    // Extract JSON safely
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    const resumeData = JSON.parse(jsonMatch ? jsonMatch[0] : text);
+
+    return Response.json({ resume: resumeData });
+
+  } catch (error: any) {
+    console.error("Resume generation error:", error);
+    return Response.json({ 
+      error: error.message || "Failed to generate resume. Please try again." 
+    }, { status: 500 });
   }
 }

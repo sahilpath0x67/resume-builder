@@ -1,36 +1,52 @@
-import Anthropic from '@anthropic-ai/sdk';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
-export async function POST(req: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    const { resume } = await req.json();
+    const { resume } = await request.json();
 
-    const prompt = `Based on this resume, write an engaging LinkedIn "About" section.
+    if (!resume) {
+      return Response.json({ 
+        error: "Resume data is required" 
+      }, { status: 400 });
+    }
 
-Resume: ${JSON.stringify(resume, null, 2)}
-
-Rules:
-- First person voice
-- 3-4 short paragraphs
-- Start with a hook (not "I am a...")
-- Mention top skills and biggest achievement
-- End with what you're looking for / open to
-- Max 300 words, conversational but professional
-
-Return ONLY the LinkedIn about text. No JSON, no markdown, no explanation.`;
-
-    const message = await client.messages.create({
-      model: 'claude-opus-4-6',
-      max_tokens: 500,
-      messages: [{ role: 'user', content: prompt }],
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-2.5-flash-lite" 
     });
 
-    const text = message.content.map(b => (b.type === 'text' ? b.text : '')).join('').trim();
-    return NextResponse.json({ linkedin: text });
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json({ error: 'Failed to generate LinkedIn summary.' }, { status: 500 });
+    const prompt = `You are an expert LinkedIn profile writer and personal branding specialist.
+
+Write a compelling, professional "About" section (LinkedIn bio) in the **first person** based on the candidate's resume.
+
+**Resume Data:**
+${JSON.stringify(resume, null, 2)}
+
+**Guidelines for a great LinkedIn About section:**
+- Write in first person ("I" statements)
+- Start with a strong, engaging opening line (hook)
+- Highlight key achievements with quantifiable results
+- Show personality while remaining professional
+- Include what you're passionate about and what you're looking for next
+- Keep total length between 1800 - 2600 characters (ideal LinkedIn range)
+- Use natural paragraphs (3-5 paragraphs)
+- End with a call-to-action or forward-looking statement
+
+Make it authentic, confident, and engaging. Avoid generic buzzwords.`;
+
+    const result = await model.generateContent(prompt);
+    const aboutText = result.response.text().trim();
+
+    return Response.json({ 
+      about: aboutText 
+    });
+
+  } catch (error: any) {
+    console.error("LinkedIn generation error:", error);
+    return Response.json({ 
+      error: error.message || "Failed to generate LinkedIn About section. Please try again." 
+    }, { status: 500 });
   }
 }

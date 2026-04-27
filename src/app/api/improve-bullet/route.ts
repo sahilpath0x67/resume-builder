@@ -1,11 +1,21 @@
-import Anthropic from '@anthropic-ai/sdk';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
-export async function POST(req: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    const { bullet, role, company } = await req.json();
+    const { bullet, role, company } = await request.json();
+
+    if (!bullet) {
+      return Response.json({ 
+        error: "Bullet point is required" 
+      }, { status: 400 });
+    }
+
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-2.5-flash-lite" 
+    });
 
     const prompt = `You are a professional resume writer. Rewrite this resume bullet point to be stronger, more quantified, and ATS-friendly.
 
@@ -14,23 +24,24 @@ Role: ${role || 'not specified'}
 Company: ${company || 'not specified'}
 
 Rules:
-- Start with a strong action verb
-- Add specific metrics/numbers if possible (estimate if needed, use phrases like "~20%" or "3x")
-- Keep it under 20 words
-- Make it impactful
+- Start with a strong action verb (Led, Increased, Developed, Built, Optimized, etc.)
+- Add specific metrics or numbers if possible (estimate realistically using ~ or "over" if needed)
+- Keep it concise (under 20-25 words)
+- Make it achievement-oriented and impactful
+- Use past tense for completed work
 
-Respond with ONLY the improved bullet text. No quotes, no explanation, no JSON.`;
+Respond with **ONLY** the improved bullet text. 
+No quotes, no explanation, no JSON, no extra words. Just the single improved bullet.`;
 
-    const message = await client.messages.create({
-      model: 'claude-opus-4-6',
-      max_tokens: 150,
-      messages: [{ role: 'user', content: prompt }],
-    });
+    const result = await model.generateContent(prompt);
+    const improved = result.response.text().trim();
 
-    const improved = message.content.map(b => (b.type === 'text' ? b.text : '')).join('').trim();
-    return NextResponse.json({ improved });
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json({ error: 'Failed to improve bullet.' }, { status: 500 });
+    return Response.json({ improved });
+
+  } catch (error: any) {
+    console.error("Improve bullet error:", error);
+    return Response.json({ 
+      error: "Failed to improve bullet point. Please try again." 
+    }, { status: 500 });
   }
 }
