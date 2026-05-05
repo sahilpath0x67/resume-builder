@@ -82,8 +82,9 @@ export default function Home() {
   const [savingCV, setSavingCV]           = useState(false);
 
   const router = useRouter();
-  const { user, profile, isPro, refreshProfile } = useAuth();
-
+  // const { user, profile, isPro, refreshProfile } = useAuth(); (replaced with temporary override for testing)
+  const { user, profile, isPro: _isPro, refreshProfile } = useAuth();
+  const isPro = true; // temporary override for testing
   const [form, setForm] = useState<FormData>(() => {
     if (typeof window === 'undefined') return EMPTY_FORM();
     try { const s = localStorage.getItem('resume-form'); return s ? JSON.parse(s) : EMPTY_FORM(); }
