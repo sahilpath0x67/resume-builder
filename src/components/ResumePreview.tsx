@@ -1,85 +1,200 @@
 import type { ResumeOutput } from '../lib/types';
 
-export default function ResumePreview({ resume, dark: D }: { resume: ResumeOutput; dark: boolean }) {
+export default function ResumePreview({
+  resume,
+  dark: D,
+}: {
+  resume: ResumeOutput;
+  dark: boolean;
+}) {
+  const bg        = D ? '#1f2937' : '#ffffff';
+  const text      = D ? '#f3f4f6' : '#111827';
+  const textMuted = D ? '#9ca3af' : '#6b7280';
+  const borderCol = D ? '#374151' : '#e5e7eb';
+  const skillBg   = D ? '#064e3b' : '#E1F5EE';
+  const skillText = D ? '#6ee7b7' : '#0F6E56';
+
   return (
     <div
       id="resume-output"
-      className={`max-w-2xl mx-auto shadow-sm rounded-xl p-10 ${D ? 'bg-gray-800 text-gray-100' : 'bg-white text-gray-900'}`}
-      style={{ fontFamily: 'Georgia, serif', fontSize: '13px', lineHeight: '1.6' }}
+      style={{
+        maxWidth: 680,
+        margin: '0 auto',
+        background: bg,
+        borderRadius: 14,
+        padding: '40px 44px',
+        boxShadow: D
+          ? '0 1px 3px rgba(0,0,0,0.4)'
+          : '0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)',
+        fontFamily: 'Georgia, "Times New Roman", serif',
+        fontSize: 13,
+        lineHeight: 1.6,
+        color: text,
+      }}
     >
-      {/* Header */}
-      <div className="mb-5">
-        <h1 style={{ fontSize: '26px', fontWeight: 700, fontFamily: 'sans-serif', marginBottom: '2px' }}>
+      {/* ── HEADER ── */}
+      <div style={{ marginBottom: 22 }}>
+        <h1 style={{
+          fontSize: 26, fontWeight: 700,
+          fontFamily: 'Inter, -apple-system, sans-serif',
+          color: text, margin: '0 0 3px',
+        }}>
           {resume.name}
         </h1>
+
         {resume.title && (
-          <p style={{ fontSize: '13px', color: '#1D9E75', fontWeight: 600, fontFamily: 'sans-serif', marginBottom: '6px' }}>
+          <p style={{
+            fontSize: 13, fontWeight: 600, color: '#1D9E75',
+            fontFamily: 'Inter, -apple-system, sans-serif',
+            margin: '0 0 8px',
+          }}>
             {resume.title}
           </p>
         )}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', fontSize: '11px', color: D ? '#9ca3af' : '#6b7280', fontFamily: 'sans-serif' }}>
-          {resume.email    && <span>{resume.email}</span>}
-          {resume.phone    && <span>{resume.phone}</span>}
-          {resume.location && <span>{resume.location}</span>}
-          {resume.linkedin && <span style={{ color: '#1D9E75' }}>{resume.linkedin}</span>}
+
+        {/* Contact row */}
+        <div style={{
+          display: 'flex', flexWrap: 'wrap', gap: '6px 16px',
+          fontSize: 11, color: textMuted,
+          fontFamily: 'Inter, -apple-system, sans-serif',
+        }}>
+          {resume.email    && <span>✉ {resume.email}</span>}
+          {resume.phone    && <span>📞 {resume.phone}</span>}
+          {resume.location && <span>📍 {resume.location}</span>}
+          {resume.linkedin && (
+            <span style={{ color: '#1D9E75' }}>🔗 {resume.linkedin}</span>
+          )}
+          {/* Fallback: top-level fields (older API shape) */}
+          {!resume.email    && resume.email    && <span>✉ {resume.email}</span>}
+          {!resume.phone    && resume.phone    && <span>📞 {resume.phone}</span>}
+          {!resume.location && resume.location && <span>📍 {resume.location}</span>}
+          {!resume.linkedin && resume.linkedin && (
+            <span style={{ color: '#1D9E75' }}>🔗 {resume.linkedin}</span>
+          )}
         </div>
-        <div style={{ height: '2px', background: '#1D9E75', marginTop: '12px', borderRadius: '1px' }} />
+
+        {/* Accent rule */}
+        <div style={{ height: 2, background: '#1D9E75', marginTop: 14, borderRadius: 1 }} />
       </div>
 
+      {/* ── SUMMARY ── */}
       {resume.summary && (
-        <Section title="Professional Summary" dark={D}>
-          <p style={{ fontSize: '12px', lineHeight: '1.8' }}>{resume.summary}</p>
+        <Section title="Professional Summary" borderColor={borderCol}>
+          <p style={{ fontSize: 12.5, lineHeight: 1.8, margin: 0, color: text }}>
+            {resume.summary}
+          </p>
         </Section>
       )}
 
+      {/* ── EXPERIENCE ── */}
       {resume.experience?.length > 0 && (
-        <Section title="Experience" dark={D}>
+        <Section title="Experience" borderColor={borderCol}>
           {resume.experience.map((exp, i) => (
-            <div key={i} style={{ marginBottom: '14px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap' }}>
-                <span style={{ fontWeight: 700, fontSize: '13px', fontFamily: 'sans-serif' }}>{exp.company}</span>
-                <span style={{ fontSize: '11px', color: D ? '#9ca3af' : '#9ca3af', fontFamily: 'sans-serif' }}>{exp.period}</span>
+            <div key={i} style={{ marginBottom: i < resume.experience.length - 1 ? 16 : 0 }}>
+              <div style={{
+                display: 'flex', justifyContent: 'space-between',
+                flexWrap: 'wrap', alignItems: 'baseline', marginBottom: 2,
+              }}>
+                <span style={{
+                  fontWeight: 700, fontSize: 13,
+                  fontFamily: 'Inter, -apple-system, sans-serif',
+                  color: text,
+                }}>
+                  {exp.company}
+                </span>
+                <span style={{
+                  fontSize: 11, color: textMuted,
+                  fontFamily: 'Inter, -apple-system, sans-serif',
+                }}>
+                  {exp.period ?? exp.period}
+                </span>
               </div>
-              <div style={{ fontSize: '12px', color: D ? '#9ca3af' : '#6b7280', fontFamily: 'sans-serif', fontStyle: 'italic', marginBottom: '4px' }}>{exp.role}</div>
-              <ul style={{ paddingLeft: '1.2em', margin: 0 }}>
-                {(exp.bullets || []).map((b, j) => (
-                  <li key={j} style={{ fontSize: '12px', marginBottom: '2px' }}>{b}</li>
-                ))}
-              </ul>
+              <div style={{
+                fontSize: 12, color: '#1D9E75',
+                fontFamily: 'Inter, -apple-system, sans-serif',
+                fontStyle: 'italic', marginBottom: 5,
+              }}>
+                {exp.role}
+              </div>
+              {exp.bullets?.length > 0 && (
+                <ul style={{ paddingLeft: '1.25em', margin: 0 }}>
+                  {exp.bullets.map((b, j) => (
+                    <li key={j} style={{ fontSize: 12, marginBottom: 3, color: text, lineHeight: 1.65 }}>
+                      {b}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           ))}
         </Section>
       )}
 
+      {/* ── EDUCATION ── */}
       {resume.education?.length > 0 && (
-        <Section title="Education" dark={D}>
+        <Section title="Education" borderColor={borderCol}>
           {resume.education.map((edu, i) => (
-            <div key={i} style={{ marginBottom: '10px', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+            <div key={i} style={{
+              display: 'flex', justifyContent: 'space-between',
+              flexWrap: 'wrap', alignItems: 'flex-start',
+              marginBottom: i < resume.education.length - 1 ? 10 : 0,
+            }}>
               <div>
-                <span style={{ fontWeight: 700, fontSize: '13px', fontFamily: 'sans-serif' }}>{edu.institution}</span>
-                <p style={{ fontSize: '12px', color: D ? '#9ca3af' : '#6b7280', fontFamily: 'sans-serif', fontStyle: 'italic', margin: '1px 0 0' }}>{edu.degree}</p>
+                <span style={{
+                  fontWeight: 700, fontSize: 13,
+                  fontFamily: 'Inter, -apple-system, sans-serif',
+                  color: text,
+                }}>
+                  {edu.institution}
+                </span>
+                <p style={{
+                  fontSize: 12, color: textMuted,
+                  fontFamily: 'Inter, -apple-system, sans-serif',
+                  fontStyle: 'italic', margin: '2px 0 0',
+                }}>
+                  {edu.degree}
+                </p>
               </div>
-              <span style={{ fontSize: '11px', color: '#9ca3af', fontFamily: 'sans-serif' }}>{edu.period}</span>
+              <span style={{
+                fontSize: 11, color: textMuted,
+                fontFamily: 'Inter, -apple-system, sans-serif',
+              }}>
+                {edu.period ?? edu.period}
+              </span>
             </div>
           ))}
         </Section>
       )}
 
+      {/* ── SKILLS ── */}
       {resume.skills?.length > 0 && (
-        <Section title="Skills" dark={D}>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+        <Section title="Skills" borderColor={borderCol}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {resume.skills.map((s, i) => (
-              <span key={i} style={{ background: '#E1F5EE', color: '#0F6E56', borderRadius: '20px', fontSize: '11px', padding: '3px 10px', fontFamily: 'sans-serif', fontWeight: 500 }}>{s}</span>
+              <span key={i} style={{
+                background: skillBg,
+                color: skillText,
+                borderRadius: 99,
+                fontSize: 11,
+                padding: '3px 11px',
+                fontFamily: 'Inter, -apple-system, sans-serif',
+                fontWeight: 500,
+              }}>
+                {s}
+              </span>
             ))}
           </div>
         </Section>
       )}
 
+      {/* ── ACHIEVEMENTS ── */}
       {resume.achievements?.length > 0 && (
-        <Section title="Achievements & Certifications" dark={D}>
-          <ul style={{ paddingLeft: '1.2em', margin: 0 }}>
+        <Section title="Achievements & Certifications" borderColor={borderCol}>
+          <ul style={{ paddingLeft: '1.25em', margin: 0 }}>
             {resume.achievements.map((a, i) => (
-              <li key={i} style={{ fontSize: '12px', marginBottom: '2px' }}>{a}</li>
+              <li key={i} style={{ fontSize: 12, marginBottom: 3, color: text, lineHeight: 1.65 }}>
+                {a}
+              </li>
             ))}
           </ul>
         </Section>
@@ -88,14 +203,30 @@ export default function ResumePreview({ resume, dark: D }: { resume: ResumeOutpu
   );
 }
 
-function Section({ title, children, dark: D }: { title: string; children: React.ReactNode; dark: boolean }) {
+function Section({
+  title,
+  children,
+  borderColor,
+}: {
+  title: string;
+  children: React.ReactNode;
+  borderColor: string;
+}) {
   return (
-    <div style={{ marginBottom: '18px' }}>
+    <div style={{ marginBottom: 20 }}>
       <h2 style={{
-        fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
-        color: '#1D9E75', fontFamily: 'sans-serif', marginBottom: '6px',
-        paddingBottom: '3px', borderBottom: `0.5px solid ${D ? '#374151' : '#e5e7eb'}`
-      }}>{title}</h2>
+        fontSize: 10,
+        fontWeight: 700,
+        letterSpacing: '0.1em',
+        textTransform: 'uppercase',
+        color: '#1D9E75',
+        fontFamily: 'Inter, -apple-system, sans-serif',
+        margin: '0 0 8px',
+        paddingBottom: 4,
+        borderBottom: `1px solid ${borderColor}`,
+      }}>
+        {title}
+      </h2>
       {children}
     </div>
   );

@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+const getErrorMessage = (error: unknown) => error instanceof Error ? error.message : 'Unknown error';
 
 export async function POST(request: NextRequest) {
   try {
@@ -38,10 +39,10 @@ No quotes, no explanation, no JSON, no extra words. Just the single improved bul
 
     return Response.json({ improved });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Improve bullet error:", error);
     return Response.json({ 
-      error: "Failed to improve bullet point. Please try again." 
+      error: getErrorMessage(error) || "Failed to improve bullet point. Please try again." 
     }, { status: 500 });
   }
 }
