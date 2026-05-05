@@ -2,51 +2,51 @@ import { NextRequest } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+const getErrorMessage = (error: unknown) => error instanceof Error ? error.message : 'Unknown error';
 
 export async function POST(request: NextRequest) {
   try {
     const { resume } = await request.json();
 
     if (!resume) {
-      return Response.json({ 
-        error: "Resume data is required" 
-      }, { status: 400 });
+      return Response.json({ error: 'Resume data is required.' }, { status: 400 });
     }
 
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-2.5-flash-lite" 
-    });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
 
     const prompt = `You are an expert LinkedIn profile writer and personal branding specialist.
 
-Write a compelling, professional "About" section (LinkedIn bio) in the **first person** based on the candidate's resume.
+Write a compelling LinkedIn "About" section in the first person based on this resume:
 
-**Resume Data:**
 ${JSON.stringify(resume, null, 2)}
 
-**Guidelines for a great LinkedIn About section:**
+Guidelines:
 - Write in first person ("I" statements)
-- Start with a strong, engaging opening line (hook)
-- Highlight key achievements with quantifiable results
+- Start with a strong engaging opening hook
+- Highlight key achievements with quantifiable results where possible
 - Show personality while remaining professional
-- Include what you're passionate about and what you're looking for next
-- Keep total length between 1800 - 2600 characters (ideal LinkedIn range)
-- Use natural paragraphs (3-5 paragraphs)
+- Keep total length between 1800 and 2600 characters
+- Use 3-5 natural paragraphs
 - End with a call-to-action or forward-looking statement
+- Avoid generic buzzwords
 
-Make it authentic, confident, and engaging. Avoid generic buzzwords.`;
+Output ONLY the About section text — no headings, no labels, no extra commentary.`;
 
     const result = await model.generateContent(prompt);
-    const aboutText = result.response.text().trim();
+    const linkedin = result.response.text().trim();
 
-    return Response.json({ 
-      about: aboutText 
-    });
+    if (!linkedin) {
+      throw new Error('AI returned an empty response. Please try again.');
+    }
 
-  } catch (error: any) {
-    console.error("LinkedIn generation error:", error);
-    return Response.json({ 
-      error: error.message || "Failed to generate LinkedIn About section. Please try again." 
-    }, { status: 500 });
+    // Return as `linkedin` key — matches what LinkedInPanel expects
+    return Response.json({ linkedin });
+
+  } catch (error: unknown) {
+    console.error('LinkedIn generation error:', error);
+    return Response.json(
+      { error: getErrorMessage(error) || 'Failed to generate LinkedIn About section. Please try again.' },
+      { status: 500 }
+    );
   }
 }

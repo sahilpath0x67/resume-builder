@@ -3,60 +3,404 @@ import { useState } from 'react';
 import type { ResumeOutput } from '../lib/types';
 
 interface Props {
-  coverLetter: string; resume: ResumeOutput | null;
-  jobDesc: string; setJobDesc: (v: string) => void;
-  companyName: string; setCompanyName: (v: string) => void;
-  hiringManager: string; setHiringManager: (v: string) => void;
-  onGenerate: () => void; loading: boolean; dark: boolean;
+  coverLetter: string;
+  resume: ResumeOutput | null;
+  jobDesc: string;
+  setJobDesc: (v: string) => void;
+  companyName: string;
+  setCompanyName: (v: string) => void;
+  hiringManager: string;
+  setHiringManager: (v: string) => void;
+  onGenerate: () => void;
+  loading: boolean;
+  dark: boolean;
 }
 
-export default function CoverLetterPanel({ coverLetter, resume, jobDesc, setJobDesc, companyName, setCompanyName, hiringManager, setHiringManager, onGenerate, loading, dark: D }: Props) {
+type Tone = 'professional' | 'enthusiastic' | 'concise';
+
+const TONES: { value: Tone; label: string; desc: string }[] = [
+  { value: 'professional', label: 'Professional', desc: 'Formal & polished' },
+  { value: 'enthusiastic', label: 'Enthusiastic', desc: 'Warm & energetic' },
+  { value: 'concise', label: 'Concise', desc: 'Short & punchy' },
+];
+
+export default function CoverLetterPanel({
+  coverLetter, resume, jobDesc, setJobDesc,
+  companyName, setCompanyName, hiringManager, setHiringManager,
+  onGenerate, loading, dark: D,
+}: Props) {
   const [copied, setCopied] = useState(false);
+  const [tone, setTone] = useState<Tone>('professional');
 
-  const copy = () => { navigator.clipboard.writeText(coverLetter); setCopied(true); setTimeout(() => setCopied(false), 2000); };
+  const copy = () => {
+    navigator.clipboard.writeText(coverLetter);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
-  const inp = `w-full border rounded-lg px-3 py-2 text-sm outline-none transition ${D ? 'bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400 focus:border-teal-400' : 'bg-white border-gray-200 text-gray-900 focus:border-teal-400'}`;
-  const card = `${D ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border rounded-xl p-4`;
+  const downloadTxt = () => {
+    const blob = new Blob([coverLetter], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${companyName || 'cover'}_letter.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const words = coverLetter.trim() ? coverLetter.trim().split(/\s+/).length : 0;
+  const hasJobDesc = jobDesc.trim().length > 0;
+
+  // ── Color tokens ──
+  const bg        = D ? '#1f2937' : '#ffffff';
+  const bgSubtle  = D ? '#111827' : '#f9fafb';
+  const borderCol = D ? '#374151' : '#e5e7eb';
+  const borderSub = D ? '#1f2937' : '#f3f4f6';
+  const text      = D ? '#f3f4f6' : '#111827';
+  const textMuted = D ? '#9ca3af' : '#6b7280';
+  const textDim   = D ? '#6b7280' : '#9ca3af';
+  const inputBg   = D ? '#374151' : '#ffffff';
+
+  const cardStyle: React.CSSProperties = {
+    background: bg,
+    border: `1px solid ${borderCol}`,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+  };
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%',
+    padding: '10px 12px',
+    fontSize: 13,
+    borderRadius: 10,
+    border: `1px solid ${borderCol}`,
+    background: inputBg,
+    color: text,
+    outline: 'none',
+    fontFamily: 'inherit',
+    boxSizing: 'border-box',
+    transition: 'border-color 0.15s',
+  };
+
+  const labelStyle: React.CSSProperties = {
+    display: 'block',
+    fontSize: 12,
+    fontWeight: 500,
+    color: textMuted,
+    marginBottom: 6,
+  };
+
+  const smallBtnStyle: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    fontSize: 12,
+    padding: '6px 12px',
+    borderRadius: 8,
+    border: `1px solid ${borderCol}`,
+    background: 'transparent',
+    color: textMuted,
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    transition: 'background 0.15s',
+  };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-4">
-      <div className={card}>
-        <p className={`text-xs font-medium mb-3 ${D ? 'text-gray-400' : 'text-gray-500'}`}>Customize your cover letter</p>
-        <div className="grid grid-cols-2 gap-2 mb-2">
-          <div>
-            <label className={`text-xs mb-1 block ${D ? 'text-gray-400' : 'text-gray-400'}`}>Company name</label>
-            <input className={inp} placeholder="Google" value={companyName} onChange={e => setCompanyName(e.target.value)} />
+    <div style={{ maxWidth: 680, margin: '0 auto' }}>
+
+      {/* ── CONFIG CARD ── */}
+      <div style={cardStyle}>
+
+        {/* Header row */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+          <div style={{
+            width: 32, height: 32, borderRadius: 8, background: '#1D9E75',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: '#fff', fontSize: 14, flexShrink: 0,
+          }}>✉</div>
+          <div style={{ flex: 1 }}>
+            <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: text }}>
+              Cover Letter Generator
+            </p>
+            <p style={{ margin: 0, fontSize: 11, color: textMuted }}>
+              AI-tailored to the job and company
+            </p>
           </div>
-          <div>
-            <label className={`text-xs mb-1 block ${D ? 'text-gray-400' : 'text-gray-400'}`}>Hiring manager</label>
-            <input className={inp} placeholder="Sarah Johnson" value={hiringManager} onChange={e => setHiringManager(e.target.value)} />
+          {/* Resume status badge */}
+          <div style={{
+            fontSize: 11, fontWeight: 500, padding: '4px 10px', borderRadius: 99,
+            background: resume ? '#d1fae5' : D ? '#3b1e06' : '#fef3c7',
+            color: resume ? '#065f46' : D ? '#fbbf24' : '#92400e',
+            flexShrink: 0,
+          }}>
+            {resume ? '✓ Resume ready' : '⚠ Generate resume first'}
           </div>
         </div>
-        <label className={`text-xs mb-1 block ${D ? 'text-gray-400' : 'text-gray-400'}`}>Job description (paste for a tailored letter)</label>
-        <textarea className={inp + ' resize-y'} rows={3} placeholder="Paste the job description here…" value={jobDesc} onChange={e => setJobDesc(e.target.value)} />
-        <button onClick={onGenerate} disabled={loading || !resume}
-          className="mt-3 w-full py-2.5 bg-teal-500 hover:bg-teal-600 disabled:opacity-50 text-white text-sm rounded-xl transition flex items-center justify-center gap-2">
-          {loading ? <><Spin /> Writing…</> : '✦ Generate / Regenerate cover letter'}
+
+        {/* Company + Hiring manager */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+          <div>
+            <label style={labelStyle}>
+              Company name <span style={{ color: '#1D9E75' }}>*</span>
+            </label>
+            <input
+              style={inputStyle}
+              placeholder="Google"
+              value={companyName}
+              onChange={e => setCompanyName(e.target.value)}
+            />
+          </div>
+          <div>
+            <label style={labelStyle}>Hiring manager</label>
+            <input
+              style={inputStyle}
+              placeholder="Sarah Johnson (optional)"
+              value={hiringManager}
+              onChange={e => setHiringManager(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* Tone selector */}
+        <div style={{ marginBottom: 14 }}>
+          <label style={labelStyle}>Tone</label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+            {TONES.map(opt => {
+              const active = tone === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setTone(opt.value)}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'flex-start',
+                    padding: '10px 12px',
+                    borderRadius: 10,
+                    border: `1.5px solid ${active ? '#1D9E75' : borderCol}`,
+                    background: active ? (D ? '#064e3b' : '#f0fdf4') : inputBg,
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    fontFamily: 'inherit',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  <span style={{
+                    fontSize: 12, fontWeight: 600,
+                    color: active ? '#1D9E75' : text,
+                  }}>
+                    {opt.label}
+                  </span>
+                  <span style={{ fontSize: 11, color: textMuted, marginTop: 2 }}>
+                    {opt.desc}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Job description */}
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+            <label style={{ ...labelStyle, marginBottom: 0 }}>Job description</label>
+            {hasJobDesc && (
+              <span style={{ fontSize: 11, color: '#1D9E75', fontWeight: 500 }}>
+                ✓ Will be used for tailoring
+              </span>
+            )}
+          </div>
+          <textarea
+            style={{ ...inputStyle, resize: 'vertical', minHeight: 90 }}
+            rows={4}
+            placeholder="Paste the job description here for a highly tailored letter…"
+            value={jobDesc}
+            onChange={e => setJobDesc(e.target.value)}
+          />
+          {!hasJobDesc && (
+            <p style={{ fontSize: 11, color: textDim, margin: '6px 0 0' }}>
+              💡 Adding a job description makes the letter 3× more relevant
+            </p>
+          )}
+        </div>
+
+        {/* Generate button */}
+        <button
+          onClick={onGenerate}
+          disabled={loading || !resume}
+          style={{
+            width: '100%',
+            padding: '11px 0',
+            borderRadius: 12,
+            border: 'none',
+            background: loading ? '#5DCAA5' : '#1D9E75',
+            color: '#fff',
+            fontSize: 13,
+            fontWeight: 500,
+            cursor: loading || !resume ? 'not-allowed' : 'pointer',
+            opacity: !resume ? 0.5 : 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            fontFamily: 'inherit',
+            transition: 'background 0.15s',
+          }}
+        >
+          {loading ? (
+            <><Spin /> Writing your cover letter…</>
+          ) : coverLetter ? (
+            <>↺ Regenerate cover letter</>
+          ) : (
+            <>✦ Generate cover letter</>
+          )}
         </button>
       </div>
 
-      {coverLetter && (
-        <div className={`${D ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border rounded-xl p-8`}>
-          <div className="flex justify-between items-center mb-5">
-            <p className={`text-xs font-medium uppercase tracking-wide ${D ? 'text-gray-400' : 'text-gray-400'}`}>Cover Letter</p>
-            <button onClick={copy} className={`text-xs px-3 py-1.5 border rounded-lg transition ${D ? 'border-gray-600 text-gray-300 hover:bg-gray-700' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}>
-              {copied ? '✓ Copied' : 'Copy'}
-            </button>
+      {/* ── RESULT CARD ── */}
+      {coverLetter ? (
+        <div style={{
+          background: bg,
+          border: `1px solid ${borderCol}`,
+          borderRadius: 16,
+          overflow: 'hidden',
+        }}>
+          {/* Toolbar */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '10px 20px',
+            borderBottom: `1px solid ${borderSub}`,
+            background: bgSubtle,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{
+                fontSize: 11, fontWeight: 600,
+                textTransform: 'uppercase', letterSpacing: '0.06em',
+                color: textMuted,
+              }}>
+                Cover Letter
+              </span>
+              <span style={{
+                fontSize: 11, padding: '2px 8px', borderRadius: 99,
+                background: D ? '#374151' : '#f3f4f6', color: textMuted,
+              }}>
+                {words} words
+              </span>
+              <span style={{
+                fontSize: 11, padding: '2px 8px', borderRadius: 99,
+                background: D ? '#064e3b' : '#d1fae5', color: '#065f46',
+                textTransform: 'capitalize',
+              }}>
+                {tone}
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button onClick={downloadTxt} style={smallBtnStyle}>
+                ↓ .txt
+              </button>
+              <button
+                onClick={copy}
+                style={{
+                  ...smallBtnStyle,
+                  background: copied ? (D ? '#064e3b' : '#f0fdf4') : 'transparent',
+                  borderColor: copied ? '#1D9E75' : borderCol,
+                  color: copied ? '#1D9E75' : textMuted,
+                }}
+              >
+                {copied ? '✓ Copied!' : '⧉ Copy'}
+              </button>
+            </div>
           </div>
-          <div className={`text-sm whitespace-pre-wrap leading-relaxed ${D ? 'text-gray-200' : 'text-gray-700'}`} style={{ fontFamily: 'Georgia, serif' }}>
-            {coverLetter}
+
+          {/* Letter body */}
+          <div style={{ padding: '32px 36px' }}>
+            <div style={{
+              width: 48, height: 3, borderRadius: 99,
+              background: '#1D9E75', marginBottom: 24,
+            }} />
+            <div style={{
+              fontSize: 13.5,
+              lineHeight: 1.85,
+              color: text,
+              whiteSpace: 'pre-wrap',
+              fontFamily: 'Georgia, "Times New Roman", serif',
+              letterSpacing: '0.01em',
+            }}>
+              {coverLetter}
+            </div>
+            <div style={{
+              marginTop: 28,
+              paddingTop: 16,
+              borderTop: `1px solid ${borderSub}`,
+              display: 'flex',
+              justifyContent: 'space-between',
+            }}>
+              <span style={{ fontSize: 11, color: textDim }}>Generated with AI Resume Builder</span>
+              <span style={{ fontSize: 11, color: textDim }}>{coverLetter.length} characters</span>
+            </div>
           </div>
         </div>
-      )}
+      ) : (
+        /* ── EMPTY STATE ── */
+        <div style={{
+          background: bg,
+          border: `1px solid ${borderCol}`,
+          borderRadius: 16,
+          padding: '48px 32px',
+          textAlign: 'center',
+        }}>
+          <div style={{
+            width: 56, height: 56, borderRadius: 14, background: '#E1F5EE',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            margin: '0 auto 16px',
+          }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
+              stroke="#1D9E75" strokeWidth="1.5" strokeLinecap="round">
+              <path d="M21 15.5v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+          </div>
+          <p style={{ margin: '0 0 6px', fontSize: 14, fontWeight: 500, color: text }}>
+            Your cover letter will appear here
+          </p>
+          <p style={{ margin: 0, fontSize: 13, color: textMuted, lineHeight: 1.6 }}>
+            {!resume
+              ? 'First generate your resume on the left, then come back here.'
+              : 'Fill in the company name above and click Generate.'}
+          </p>
 
-      {!coverLetter && (
-        <div className={`text-center py-16 text-sm ${D ? 'text-gray-500' : 'text-gray-400'}`}>
-          Fill in the fields above and click Generate to create your cover letter.
+          {resume && (
+            <div style={{
+              marginTop: 24,
+              textAlign: 'left',
+              border: `1px solid ${borderSub}`,
+              borderRadius: 12,
+              padding: 16,
+              background: bgSubtle,
+            }}>
+              <p style={{
+                margin: '0 0 10px', fontSize: 11, fontWeight: 600,
+                color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em',
+              }}>
+                Tips for a great letter
+              </p>
+              {[
+                'Paste the job description for maximum relevance',
+                "Add the hiring manager's name for a personal touch",
+                'Choose your tone to match the company culture',
+              ].map(tip => (
+                <div key={tip} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 8 }}>
+                  <span style={{ color: '#1D9E75', fontSize: 11, marginTop: 1, flexShrink: 0 }}>✦</span>
+                  <span style={{ fontSize: 12, color: textMuted }}>{tip}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -64,5 +408,15 @@ export default function CoverLetterPanel({ coverLetter, resume, jobDesc, setJobD
 }
 
 function Spin() {
-  return <span className="inline-block w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />;
+  return (
+    <span style={{
+      display: 'inline-block',
+      width: 14, height: 14,
+      borderRadius: '50%',
+      border: '2px solid rgba(255,255,255,0.3)',
+      borderTopColor: '#fff',
+      animation: 'spin 0.7s linear infinite',
+      flexShrink: 0,
+    }} />
+  );
 }

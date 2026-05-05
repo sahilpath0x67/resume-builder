@@ -16,11 +16,11 @@ export async function downloadPDF(elementId: string, filename = 'resume.pdf') {
   const html2pdf = (await import('html2pdf.js')).default;
 
   const opt = {
-    margin:      [10, 12, 10, 12],   // [top, right, bottom, left] in mm
+    margin:      [10, 12, 10, 12] as [number, number, number, number],   // [top, right, bottom, left] in mm
     filename,
-    image:       { type: 'jpeg', quality: 0.98 },
+    image:       { type: 'jpeg' as const, quality: 0.98 },
     html2canvas: { scale: 2, useCORS: true, letterRendering: true, logging: false },
-    jsPDF:       { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    jsPDF:       { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const },
   };
 
   await html2pdf().set(opt).from(el).save();

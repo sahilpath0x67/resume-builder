@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+const getErrorMessage = (error: unknown) => error instanceof Error ? error.message : 'Unknown error';
 
 export async function POST(request: NextRequest) {
   try {
@@ -62,10 +63,10 @@ Output **ONLY** valid JSON with this exact structure (no extra text, no markdown
 
     return Response.json({ resume: resumeData });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Resume generation error:", error);
     return Response.json({ 
-      error: error.message || "Failed to generate resume. Please try again." 
+      error: getErrorMessage(error) || "Failed to generate resume. Please try again." 
     }, { status: 500 });
   }
 }
