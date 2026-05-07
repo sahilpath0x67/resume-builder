@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+import { getModel } from '@/lib/gemini';
 
 const getErrorMessage = (error: unknown) =>
   error instanceof Error ? error.message : 'Unknown error';
@@ -39,14 +39,8 @@ export async function POST(request: NextRequest) {
     const toneGuide = TONE_INSTRUCTIONS[tone] ?? TONE_INSTRUCTIONS.professional;
     const hasJobDesc = jobDescription?.trim().length > 0;
 
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash-lite',
-      generationConfig: {
-        temperature: tone === 'enthusiastic' ? 0.9 : 0.7,
-        maxOutputTokens: 600,
-      },
-    });
-
+    const model = getModel({ temperature: 0.8, maxOutputTokens: 600 });
+    
     const prompt = `You are an expert career coach and professional cover letter writer.
 
 ## Task

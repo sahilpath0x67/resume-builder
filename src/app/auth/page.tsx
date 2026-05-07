@@ -18,15 +18,15 @@ import { createUserProfile } from '@/lib/userStore';
 function friendlyError(err: unknown): string {
   if (!(err instanceof FirebaseError)) return 'Something went wrong. Please try again.';
   switch (err.code) {
-    case 'auth/email-already-in-use':    return 'An account with this email already exists.';
-    case 'auth/invalid-email':           return 'Please enter a valid email address.';
-    case 'auth/weak-password':           return 'Password must be at least 8 characters.';
+    case 'auth/email-already-in-use': return 'An account with this email already exists.';
+    case 'auth/invalid-email': return 'Please enter a valid email address.';
+    case 'auth/weak-password': return 'Password must be at least 8 characters.';
     case 'auth/wrong-password':
-    case 'auth/invalid-credential':      return 'Incorrect email or password.';
-    case 'auth/user-not-found':          return 'No account found with this email.';
-    case 'auth/too-many-requests':       return 'Too many attempts. Please try again later.';
-    case 'auth/popup-closed-by-user':    return 'Sign-in popup was closed. Please try again.';
-    default:                             return err.message;
+    case 'auth/invalid-credential': return 'Incorrect email or password.';
+    case 'auth/user-not-found': return 'No account found with this email.';
+    case 'auth/too-many-requests': return 'Too many attempts. Please try again later.';
+    case 'auth/popup-closed-by-user': return 'Sign-in popup was closed. Please try again.';
+    default: return err.message;
   }
 }
 
@@ -41,15 +41,15 @@ const FEATURES = [
 
 // ─────────────────────────────────────────────────────────────────────────────
 export default function AuthPage() {
-  const [tab, setTab]           = useState<'signin' | 'signup'>('signin');
-  const [name, setName]         = useState('');
-  const [email, setEmail]       = useState('');
+  const [tab, setTab] = useState<'signin' | 'signup'>('signin');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
-  const [loading, setLoading]   = useState(false);
+  const [loading, setLoading] = useState(false);
   const [gLoading, setGLoading] = useState(false);
-  const [error, setError]       = useState('');
-  const [success, setSuccess]   = useState('');
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [forgotMode, setForgotMode] = useState(false);
 
   const router = useRouter();
@@ -116,7 +116,33 @@ export default function AuthPage() {
       `}</style>
 
       <div style={{ display: 'flex', minHeight: '100vh', fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif' }}>
-
+        {/* Close button — returns to main page */}
+        <button
+          onClick={() => router.push('/')}
+          style={{
+            position: 'fixed',
+            top: 16,
+            right: 16,
+            width: 36,
+            height: 36,
+            borderRadius: '50%',
+            border: '1px solid #e5e7eb',
+            background: '#fff',
+            color: '#6b7280',
+            fontSize: 18,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 50,
+            boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+            fontFamily: 'inherit',
+            lineHeight: 1,
+          }}
+          title="Back to app"
+        >
+          ✕
+        </button>
         {/* ── LEFT SIDEBAR ── */}
         <aside style={{ width: 320, flexShrink: 0, background: 'linear-gradient(160deg, #0F6E56 0%, #064e3b 100%)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '2.5rem 2rem' }}>
           <div>
@@ -164,7 +190,7 @@ export default function AuthPage() {
               <p style={{ fontSize: 13, color: '#6b7280', margin: 0 }}>
                 {forgotMode ? 'Enter your email and we\'ll send a reset link'
                   : tab === 'signin' ? 'Sign in to access your resumes'
-                  : 'Free to start — no credit card required'}
+                    : 'Free to start — no credit card required'}
               </p>
             </div>
 
