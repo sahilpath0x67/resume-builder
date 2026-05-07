@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+import { getModel } from '@/lib/gemini';
 const getErrorMessage = (error: unknown) => error instanceof Error ? error.message : 'Unknown error';
 
 export async function POST(request: NextRequest) {
@@ -12,8 +12,7 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: 'Resume data is required.' }, { status: 400 });
     }
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
-
+    const model = getModel({ temperature: 0.7, maxOutputTokens: 500 });
     const prompt = `You are an expert LinkedIn profile writer and personal branding specialist.
 
 Write a compelling LinkedIn "About" section in the first person based on this resume:

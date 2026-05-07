@@ -1,16 +1,13 @@
 import { NextRequest } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+// import { GoogleGenerativeAI } from '@google/generative-ai';
+import { getModel } from '@/lib/gemini';
 const getErrorMessage = (error: unknown) => error instanceof Error ? error.message : 'Unknown error';
 
 export async function POST(request: NextRequest) {
   try {
     const form = await request.json();
 
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-2.5-flash-lite",   // Most reliable on free tier
-    });
+    const model = getModel({ temperature: 0.7, maxOutputTokens: 1500 });
 
     const systemPrompt = `You are an expert professional resume writer. 
 Your task is to create a clean, modern, ATS-friendly resume.
@@ -50,6 +47,7 @@ Output **ONLY** valid JSON with this exact structure (no extra text, no markdown
     }
   ],
   "skills": string[]
+  "achievements": ["achievement 1", "certification 1"]
 }`;
 
     const userPrompt = `User's raw information:\n${JSON.stringify(form, null, 2)}`;

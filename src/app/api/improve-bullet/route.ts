@@ -1,48 +1,36 @@
+// src/app/api/improve-bullet/route.ts
 import { NextRequest } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-const getErrorMessage = (error: unknown) => error instanceof Error ? error.message : 'Unknown error';
+import { getModel } from '@/lib/gemini';
+const getErrorMessage = (e: unknown) => e instanceof Error ? e.message : 'Unknown error';
 
 export async function POST(request: NextRequest) {
   try {
     const { bullet, role, company } = await request.json();
+    if (!bullet) return Response.json({ error: 'Bullet text is required.' }, { status: 400 });
 
-    if (!bullet) {
-      return Response.json({ 
-        error: "Bullet point is required" 
-      }, { status: 400 });
-    }
+    const model = getModel({ temperature: 0.6, maxOutputTokens: 100 });
 
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-2.5-flash-lite" 
-    });
+    const prompt = `You are an expert resume writer. Rewrite this resume bullet point to be stronger.
 
-    const prompt = `You are a professional resume writer. Rewrite this resume bullet point to be stronger, more quantified, and ATS-friendly.
-
+Role: ${role || 'Professional'}
+Company: ${company || 'Company'}
 Original bullet: "${bullet}"
-Role: ${role || 'not specified'}
-Company: ${company || 'not specified'}
 
 Rules:
-- Start with a strong action verb (Led, Increased, Developed, Built, Optimized, etc.)
-- Add specific metrics or numbers if possible (estimate realistically using ~ or "over" if needed)
-- Keep it concise (under 20-25 words)
-- Make it achievement-oriented and impactful
-- Use past tense for completed work
-
-Respond with **ONLY** the improved bullet text. 
-No quotes, no explanation, no JSON, no extra words. Just the single improved bullet.`;
+- Start with a strong action verb (Led, Built, Increased, Delivered, etc.)
+- Add quantification if possible (%, $, numbers, team size)
+- Keep it to ONE line, max 120 characters
+- Make it more impactful and specific
+- Output ONLY the rewritten bullet, nothing else, no quotes`;
 
     const result = await model.generateContent(prompt);
-    const improved = result.response.text().trim();
+    const improved = result.response.text().trim().replace(/^["']|["']$/g, '');
 
     return Response.json({ improved });
-
-  } catch (error: unknown) {
-    console.error("Improve bullet error:", error);
-    return Response.json({ 
-      error: getErrorMessage(error) || "Failed to improve bullet point. Please try again." 
-    }, { status: 500 });
+  } catch (e: unknown) {
+    console.error('Improve bullet error:', e);
+    return Response.json({ error: getErrorMessage(e) }, { status: 500 });
   }
 }
