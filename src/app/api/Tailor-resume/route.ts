@@ -1,44 +1,61 @@
 // src/app/api/tailor-resume/route.ts
 import { NextRequest } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
-
-import { getModel } from '@/lib/gemini';
-const getErrorMessage = (e: unknown) => e instanceof Error ? e.message : 'Unknown error';
+import { getModel, checkRateLimit, getCached, setCached, makeCacheKey, friendlyError } from '@/lib/gemini';
 
 export async function POST(request: NextRequest) {
   try {
+    // ── Rate limit: 3 per minute — complex task ──
+    const ip = request.headers.get('x-forwarded-for') ?? 'unknown';
+    const { allowed, retryAfter } = checkRateLimit(ip, 3);
+    if (!allowed) {
+      return Response.json(
+        { error: `Rate limit reached. Please wait ${retryAfter} seconds.` },
+        { status: 429, headers: { 'Retry-After': String(retryAfter) } }
+      );
+    }
+
     const { resume, jobDescription } = await request.json();
-    if (!resume || !jobDescription) return Response.json({ error: 'Resume and job description are required.' }, { status: 400 });
+    if (!resume || !jobDescription) {
+      return Response.json({ error: 'Resume and job description are required.' }, { status: 400 });
+    }
 
-    const model = getModel({ temperature: 0.7, maxOutputTokens: 1500 });
+    // ── Cache check ──
+    const cacheKey = makeCacheKey('tailor', {
+      name: resume.name,
+      title: resume.title,
+      jobDescSnippet: jobDescription.slice(0, 300),
+    });
+    const cached = getCached(cacheKey);
+    if (cached) return Response.json({ resume: cached, cached: true });
 
-    const prompt = `You are an expert resume writer specializing in ATS optimization.
+    // ── Use smart model — needs to understand job desc deeply ──
+    const model = getModel({ smart: true, temperature: 0.6, maxOutputTokens: 1500 });
 
-Tailor this resume to match the job description. Return ONLY valid JSON, no markdown, no extra text.
+    const prompt = `Tailor this resume to the job description. Return ONLY valid JSON, same structure as input.
 
 Job Description:
-${jobDescription}
+${jobDescription.slice(0, 1500)}
 
-Current Resume:
+Resume:
 ${JSON.stringify(resume, null, 2)}
 
-Instructions:
-- Rewrite the summary to directly address the job requirements
-- Reorder and strengthen experience bullets to highlight relevant skills
-- Keep all factual information accurate — do not invent experience
-- Add missing keywords from the job description naturally
-- Keep the same JSON structure as the input resume
-
-Return the same JSON structure as the input resume with tailored content.`;
+Rules:
+- Rewrite summary to address job requirements directly
+- Strengthen and reorder bullets to highlight relevant experience
+- Add missing keywords naturally — do NOT invent experience
+- Keep all facts accurate
+- Keep exact same JSON field names and structure`;
 
     const result = await model.generateContent(prompt);
     const text = result.response.text();
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     const tailored = JSON.parse(jsonMatch ? jsonMatch[0] : text);
 
+    setCached(cacheKey, tailored, 1800);
     return Response.json({ resume: tailored });
-  } catch (e: unknown) {
+
+  } catch (e) {
     console.error('Tailor resume error:', e);
-    return Response.json({ error: getErrorMessage(e) }, { status: 500 });
+    return Response.json({ error: friendlyError(e) }, { status: 500 });
   }
 }

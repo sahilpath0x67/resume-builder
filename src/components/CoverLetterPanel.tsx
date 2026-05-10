@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import type { ResumeOutput } from '../lib/types';
+import { buildCoverLetterDraft } from '../lib/localTemplates';
 
 interface Props {
   coverLetter: string;
@@ -12,6 +13,7 @@ interface Props {
   hiringManager: string;
   setHiringManager: (v: string) => void;
   onGenerate: () => void;
+  onUseDraft: (text: string) => void;
   loading: boolean;
   dark: boolean;
 }
@@ -27,7 +29,7 @@ const TONES: { value: Tone; label: string; desc: string }[] = [
 export default function CoverLetterPanel({
   coverLetter, resume, jobDesc, setJobDesc,
   companyName, setCompanyName, hiringManager, setHiringManager,
-  onGenerate, loading, dark: D,
+  onGenerate, onUseDraft, loading, dark: D,
 }: Props) {
   const [copied, setCopied] = useState(false);
   const [tone, setTone] = useState<Tone>('professional');
@@ -50,6 +52,11 @@ export default function CoverLetterPanel({
 
   const words = coverLetter.trim() ? coverLetter.trim().split(/\s+/).length : 0;
   const hasJobDesc = jobDesc.trim().length > 0;
+
+  const useTemplateDraft = () => {
+    if (!resume) return;
+    onUseDraft(buildCoverLetterDraft(resume, companyName, hiringManager, jobDesc));
+  };
 
   // ── Color tokens ──
   const bg        = D ? '#1f2937' : '#ffffff';
@@ -124,7 +131,7 @@ export default function CoverLetterPanel({
               Cover Letter Generator
             </p>
             <p style={{ margin: 0, fontSize: 11, color: textMuted }}>
-              AI-tailored to the job and company
+              Template draft or AI-tailored letter
             </p>
           </div>
           {/* Resume status badge */}
@@ -134,7 +141,7 @@ export default function CoverLetterPanel({
             color: resume ? '#065f46' : D ? '#fbbf24' : '#92400e',
             flexShrink: 0,
           }}>
-            {resume ? '✓ Resume ready' : '⚠ Generate resume first'}
+            {resume ? '✓ Resume ready' : '⚠ Fill resume first'}
           </div>
         </div>
 
@@ -226,37 +233,58 @@ export default function CoverLetterPanel({
           )}
         </div>
 
-        {/* Generate button */}
-        <button
-          onClick={onGenerate}
-          disabled={loading || !resume}
-          style={{
-            width: '100%',
-            padding: '11px 0',
-            borderRadius: 12,
-            border: 'none',
-            background: loading ? '#5DCAA5' : '#1D9E75',
-            color: '#fff',
-            fontSize: 13,
-            fontWeight: 500,
-            cursor: loading || !resume ? 'not-allowed' : 'pointer',
-            opacity: !resume ? 0.5 : 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 8,
-            fontFamily: 'inherit',
-            transition: 'background 0.15s',
-          }}
-        >
-          {loading ? (
-            <><Spin /> Writing your cover letter…</>
-          ) : coverLetter ? (
-            <>↺ Regenerate cover letter</>
-          ) : (
-            <>✦ Generate cover letter</>
-          )}
-        </button>
+        {/* Generate buttons */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          <button
+            onClick={useTemplateDraft}
+            disabled={!resume}
+            style={{
+              width: '100%',
+              padding: '11px 0',
+              borderRadius: 12,
+              border: `1px solid rgba(29,158,117,0.45)`,
+              background: 'transparent',
+              color: '#1D9E75',
+              fontSize: 13,
+              fontWeight: 500,
+              cursor: !resume ? 'not-allowed' : 'pointer',
+              opacity: !resume ? 0.5 : 1,
+              fontFamily: 'inherit',
+            }}
+          >
+            Use template draft
+          </button>
+          <button
+            onClick={onGenerate}
+            disabled={loading || !resume}
+            style={{
+              width: '100%',
+              padding: '11px 0',
+              borderRadius: 12,
+              border: 'none',
+              background: loading ? '#5DCAA5' : '#1D9E75',
+              color: '#fff',
+              fontSize: 13,
+              fontWeight: 500,
+              cursor: loading || !resume ? 'not-allowed' : 'pointer',
+              opacity: !resume ? 0.5 : 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              fontFamily: 'inherit',
+              transition: 'background 0.15s',
+            }}
+          >
+            {loading ? (
+              <><Spin /> Writing…</>
+            ) : coverLetter ? (
+              <>✦ Enhance with AI</>
+            ) : (
+              <>✦ Write with AI</>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* ── RESULT CARD ── */}
@@ -370,7 +398,7 @@ export default function CoverLetterPanel({
           </p>
           <p style={{ margin: 0, fontSize: 13, color: textMuted, lineHeight: 1.6 }}>
             {!resume
-              ? 'First generate your resume on the left, then come back here.'
+              ? 'First fill in your resume details on the left, then come back here.'
               : 'Fill in the company name above and click Generate.'}
           </p>
 

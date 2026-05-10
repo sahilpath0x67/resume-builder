@@ -1,31 +1,24 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import ErrorBoundary from '@/components/ErrorBoundary';
 
 export const metadata: Metadata = {
   title: 'AnantaCV — Free Professional Resume Builder',
-  description: 'Build a polished, ATS-friendly resume instantly. Choose from 7 templates, use AI to write your bullets, generate cover letters, and score your resume against any job.',
-  keywords: [
-    'resume builder',
-    'AI resume',
-    'ATS resume',
-    'cover letter generator',
-    'free resume maker',
-    'professional resume',
-    'LinkedIn bio generator',
-  ],
-  authors: [{ name: 'AI Resume Builder' }],
+  description: 'Build a polished, ATS-friendly resume in minutes. Choose from 7 templates, use AI to write your bullets, generate cover letters, and score your resume against any job. Free to use.',
+  keywords: ['resume builder', 'CV builder', 'free resume', 'ATS resume', 'cover letter generator', 'resume Nepal', 'AnantaCV'],
+  authors: [{ name: 'AnantaCV' }],
+  creator: 'AnantaCV',
   openGraph: {
-    title: 'AI Resume Builder — Free Professional Resumes in Seconds',
-    description:
-      'Build a polished, ATS-friendly resume instantly using AI. Cover letters, ATS scoring, and LinkedIn bios included.',
+    title: 'AnantaCV — Free Professional Resume Builder',
+    description: 'Build a polished, ATS-friendly resume in minutes. 7 templates, AI writing, cover letter generator.',
+    url: 'https://anantacv.vercel.app',
+    siteName: 'AnantaCV',
     type: 'website',
-    locale: 'en_US',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'AI Resume Builder',
-    description:
-      'Build a polished, ATS-friendly resume instantly using AI.',
+    title: 'AnantaCV — Free Professional Resume Builder',
+    description: 'Build a polished, ATS-friendly resume in minutes. Free to use.',
   },
   robots: {
     index: true,
@@ -39,19 +32,14 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <head>
-        <link rel="icon" href="/favicon.ico" sizes="any" />
-        <link rel="icon" href="/icon.svg" type="image/svg+xml" />
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-      </head>
-      <body className="antialiased">{children}</body>
+    <html lang="en">
+      <body suppressHydrationWarning>
+        <ErrorBoundary>
+          {children}
+        </ErrorBoundary>
+      </body>
     </html>
   );
 }

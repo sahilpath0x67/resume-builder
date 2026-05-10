@@ -34,3 +34,5 @@
 //     return Response.json({ error: 'Failed to create checkout session.' }, { status: 500 });
 //   }
 // }
+
+export {};

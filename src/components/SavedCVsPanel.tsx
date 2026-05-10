@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import type { ResumeOutput } from '../lib/types';
 import type { SavedCV } from '../lib/userStore';
+import type { FormData } from '../lib/types';
 
 interface Props {
   cvs: SavedCV[];
@@ -11,9 +12,10 @@ interface Props {
   onSave: (name: string) => void;
   saving: boolean;
   currentResume: ResumeOutput | null;
+  currentForm?: FormData; // so we can show what's currently in the form
 }
 
-export default function SavedCVsPanel({ cvs, dark: D, onLoad, onDelete, onSave, saving, currentResume }: Props) {
+export default function SavedCVsPanel({ cvs, dark: D, onLoad, onDelete, onSave, saving, currentResume, currentForm }: Props) {
   const [saveName, setSaveName] = useState('');
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
@@ -28,16 +30,17 @@ export default function SavedCVsPanel({ cvs, dark: D, onLoad, onDelete, onSave, 
 
   const cardStyle: React.CSSProperties = { background: bg, border: `1px solid ${borderCol}`, borderRadius: 16, padding: 20, marginBottom: 16 };
 
-  const fmt = (ts: number) => {
-    const d = new Date(ts);
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-  };
+  const fmt = (ts: number) => new Date(ts).toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+
+  const hasAnything = currentResume || (currentForm?.name || currentForm?.title);
 
   return (
     <div style={{ maxWidth: 680, margin: '0 auto' }}>
 
       {/* ── SAVE CURRENT ── */}
-      {currentResume && (
+      {hasAnything && (
         <div style={cardStyle}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
             <div style={{ width: 32, height: 32, borderRadius: 8, background: '#1D9E75', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 15, flexShrink: 0 }}>💾</div>
@@ -87,21 +90,17 @@ export default function SavedCVsPanel({ cvs, dark: D, onLoad, onDelete, onSave, 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {[...cvs].sort((a, b) => b.updatedAt - a.updatedAt).map(cv => (
               <div key={cv.id} style={{ background: bgSubtle, border: `1px solid ${borderSub}`, borderRadius: 12, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-                {/* CV icon */}
                 <div style={{ width: 38, height: 38, borderRadius: 10, background: D ? '#374151' : '#e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>📄</div>
-
-                {/* Info */}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ margin: '0 0 2px', fontSize: 13, fontWeight: 600, color: text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cv.name}</p>
-                  <div style={{ display: 'flex', gap: 10, fontSize: 11, color: textMuted }}>
+                  <div style={{ display: 'flex', gap: 10, fontSize: 11, color: textMuted, flexWrap: 'wrap' }}>
                     <span>{cv.resume.name}</span>
                     <span>·</span>
                     <span>{fmt(cv.updatedAt)}</span>
                     {cv.coverLetter && <><span>·</span><span style={{ color: '#1D9E75' }}>✉ Cover letter</span></>}
+                    {cv.formData && <><span>·</span><span style={{ color: '#60a5fa' }}>✏ Editable</span></>}
                   </div>
                 </div>
-
-                {/* Actions */}
                 <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                   <button
                     onClick={() => onLoad(cv)}

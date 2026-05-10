@@ -1,51 +1,57 @@
+// src/app/api/linkedin-summary/route.ts
 import { NextRequest } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
-
-import { getModel } from '@/lib/gemini';
-const getErrorMessage = (error: unknown) => error instanceof Error ? error.message : 'Unknown error';
+import { getModel, checkRateLimit, getCached, setCached, makeCacheKey, friendlyError } from '@/lib/gemini';
 
 export async function POST(request: NextRequest) {
   try {
-    const { resume } = await request.json();
-
-    if (!resume) {
-      return Response.json({ error: 'Resume data is required.' }, { status: 400 });
+    // ── Rate limit: 5 per minute ──
+    const ip = request.headers.get('x-forwarded-for') ?? 'unknown';
+    const { allowed, retryAfter } = checkRateLimit(ip, 5);
+    if (!allowed) {
+      return Response.json(
+        { error: `Rate limit reached. Please wait ${retryAfter} seconds.` },
+        { status: 429, headers: { 'Retry-After': String(retryAfter) } }
+      );
     }
 
-    const model = getModel({ temperature: 0.7, maxOutputTokens: 500 });
-    const prompt = `You are an expert LinkedIn profile writer and personal branding specialist.
+    const { resume } = await request.json();
+    if (!resume) return Response.json({ error: 'Resume data is required.' }, { status: 400 });
 
-Write a compelling LinkedIn "About" section in the first person based on this resume:
+    // ── Cache check ──
+    const cacheKey = makeCacheKey('linkedin', {
+      name: resume.name,
+      title: resume.title,
+      skills: resume.skills,
+      expCount: resume.experience?.length,
+    });
+    const cached = getCached(cacheKey);
+    if (cached) return Response.json({ linkedin: cached, cached: true });
 
-${JSON.stringify(resume, null, 2)}
+    // ── Use flash-lite — medium length output ──
+    const model = getModel({ smart: false, temperature: 0.7, maxOutputTokens: 500 });
 
-Guidelines:
-- Write in first person ("I" statements)
-- Start with a strong engaging opening hook
-- Highlight key achievements with quantifiable results where possible
-- Show personality while remaining professional
-- Keep total length between 1800 and 2600 characters
-- Use 3-5 natural paragraphs
-- End with a call-to-action or forward-looking statement
-- Avoid generic buzzwords
+    const prompt = `Write a LinkedIn About section in first person. 3-4 paragraphs, 1800-2400 characters. Output ONLY the text, no headings, no labels.
 
-Output ONLY the About section text — no headings, no labels, no extra commentary.`;
+Candidate:
+- Name: ${resume.name}
+- Title: ${resume.title}
+- Summary: ${resume.summary || 'N/A'}
+- Skills: ${resume.skills?.join(', ') || 'N/A'}
+- Experience: ${resume.experience?.map((e: {role: string; company: string; bullets?: string[]}) => `${e.role} at ${e.company}`).join(', ') || 'N/A'}
+- Achievements: ${resume.achievements?.join(', ') || 'N/A'}
+
+Rules: Start with a hook. Use "I" statements. End with a call to action. No buzzwords.`;
 
     const result = await model.generateContent(prompt);
     const linkedin = result.response.text().trim();
 
-    if (!linkedin) {
-      throw new Error('AI returned an empty response. Please try again.');
-    }
+    if (!linkedin) throw new Error('AI returned empty response.');
 
-    // Return as `linkedin` key — matches what LinkedInPanel expects
+    setCached(cacheKey, linkedin, 3600);
     return Response.json({ linkedin });
 
-  } catch (error: unknown) {
-    console.error('LinkedIn generation error:', error);
-    return Response.json(
-      { error: getErrorMessage(error) || 'Failed to generate LinkedIn About section. Please try again.' },
-      { status: 500 }
-    );
+  } catch (e) {
+    console.error('LinkedIn error:', e);
+    return Response.json({ error: friendlyError(e) }, { status: 500 });
   }
 }
