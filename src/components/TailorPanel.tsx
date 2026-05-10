@@ -1,6 +1,8 @@
 'use client';
 import { useState } from 'react';
 import type { ResumeOutput } from '../lib/types';
+import { getAIErrorMessage } from '../lib/aiErrors';
+import { extractJobKeywords } from '../lib/localTemplates';
 
 interface Props {
   resume: ResumeOutput | null;
@@ -13,6 +15,7 @@ export default function TailorPanel({ resume, dark: D, onTailored }: Props) {
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');
   const [success, setSuccess]   = useState('');
+  const [keywords, setKeywords] = useState<string[]>([]);
 
   const bg        = D ? '#1f2937' : '#ffffff';
   const bgSubtle  = D ? '#111827' : '#f9fafb';
@@ -26,7 +29,7 @@ export default function TailorPanel({ resume, dark: D, onTailored }: Props) {
   const inp: React.CSSProperties  = { width: '100%', padding: '10px 12px', fontSize: 13, borderRadius: 10, border: `1px solid ${borderCol}`, background: inputBg, color: text, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', resize: 'vertical' };
 
   const tailor = async () => {
-    if (!resume) { setError('Generate your resume first.'); return; }
+    if (!resume) { setError('Fill in your resume details first.'); return; }
     if (!jobDesc.trim()) { setError('Please paste a job description.'); return; }
     setLoading(true); setError(''); setSuccess('');
     try {
@@ -36,9 +39,17 @@ export default function TailorPanel({ resume, dark: D, onTailored }: Props) {
       onTailored(data.resume);
       setSuccess('Resume tailored! Check the Preview tab to see the changes.');
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : '';
-      setError(msg.includes('429') || msg.includes('quota') ? 'Rate limit reached. Please wait and try again.' : 'Failed to tailor resume. Please try again.');
+      setError(getAIErrorMessage(e, 'Failed to tailor resume. Please try again.'));
     } finally { setLoading(false); }
+  };
+
+  const scanKeywords = () => {
+    if (!resume) { setError('Fill in your resume details first.'); return; }
+    if (!jobDesc.trim()) { setError('Please paste a job description.'); return; }
+    const found = extractJobKeywords(jobDesc, resume);
+    setKeywords(found);
+    setError('');
+    setSuccess(found.length ? 'Keyword scan complete.' : 'No obvious missing keywords found.');
   };
 
   return (
@@ -52,7 +63,7 @@ export default function TailorPanel({ resume, dark: D, onTailored }: Props) {
             <p style={{ margin: 0, fontSize: 11, color: textMuted }}>AI rewrites your resume to match a specific job</p>
           </div>
           <div style={{ fontSize: 11, fontWeight: 500, padding: '4px 10px', borderRadius: 99, background: resume ? '#d1fae5' : D ? '#3b1e06' : '#fef3c7', color: resume ? '#065f46' : D ? '#fbbf24' : '#92400e', flexShrink: 0 }}>
-            {resume ? '✓ Resume ready' : '⚠ Generate resume first'}
+            {resume ? '✓ Resume ready' : '⚠ Fill resume first'}
           </div>
         </div>
 
@@ -83,6 +94,23 @@ export default function TailorPanel({ resume, dark: D, onTailored }: Props) {
           </p>
         </div>
 
+        <button onClick={scanKeywords} disabled={!resume || !jobDesc.trim()} style={{ width: '100%', padding: '10px 0', borderRadius: 12, border: `1px solid ${borderCol}`, background: 'transparent', color: textMuted, fontSize: 13, fontWeight: 500, cursor: !resume || !jobDesc.trim() ? 'not-allowed' : 'pointer', opacity: !resume || !jobDesc.trim() ? 0.5 : 1, fontFamily: 'inherit', marginBottom: 12 }}>
+          Scan missing keywords
+        </button>
+
+        {keywords.length > 0 && (
+          <div style={{ background: bgSubtle, border: `1px solid ${borderSub}`, borderRadius: 10, padding: '12px 14px', marginBottom: 12 }}>
+            <p style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 600, color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Missing keywords</p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {keywords.map(keyword => (
+                <span key={keyword} style={{ fontSize: 11, padding: '3px 9px', borderRadius: 99, background: D ? '#312e81' : '#ede9fe', color: D ? '#c4b5fd' : '#6d28d9', fontWeight: 500 }}>
+                  {keyword}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Error / success */}
         {error && <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171', borderRadius: 10, padding: '10px 14px', fontSize: 12, marginBottom: 12 }}>⚠ {error}</div>}
         {success && <div style={{ background: 'rgba(29,158,117,0.1)', border: '1px solid rgba(29,158,117,0.2)', color: '#1D9E75', borderRadius: 10, padding: '10px 14px', fontSize: 12, marginBottom: 12 }}>✓ {success}</div>}
@@ -97,8 +125,8 @@ export default function TailorPanel({ resume, dark: D, onTailored }: Props) {
       {!resume && (
         <div style={{ background: bg, border: `1px solid ${borderCol}`, borderRadius: 16, padding: '40px 32px', textAlign: 'center' }}>
           <div style={{ width: 56, height: 56, borderRadius: 14, background: 'rgba(124,58,237,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontSize: 24 }}>🎯</div>
-          <p style={{ margin: '0 0 6px', fontSize: 14, fontWeight: 500, color: text }}>Generate your resume first</p>
-          <p style={{ margin: 0, fontSize: 13, color: textMuted, lineHeight: 1.6 }}>Fill in your details on the left, generate a resume, then come back here to tailor it to any job.</p>
+          <p style={{ margin: '0 0 6px', fontSize: 14, fontWeight: 500, color: text }}>Fill in your resume first</p>
+          <p style={{ margin: 0, fontSize: 13, color: textMuted, lineHeight: 1.6 }}>Add your details on the left, then come back here to tailor it to any job.</p>
         </div>
       )}
     </div>

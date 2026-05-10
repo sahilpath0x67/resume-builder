@@ -15,7 +15,7 @@ export interface Education {
 
 export interface FormData {
   name: string;
-  jobTitle: string;
+  title: string;
   email: string;
   phone: string;
   location: string;

@@ -1,14 +1,28 @@
 'use client';
 import { useRouter } from 'next/navigation';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { signOut } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { useAuth } from '../lib/useAuth';
 import { saveCV, deleteCV } from '../lib/userStore';
 import type { SavedCV } from '../lib/userStore';
 import type { FormData, ResumeOutput, Experience, Education } from '../lib/types';
-import { downloadPDF, downloadHTML, copyAsText } from '../lib/exportUtils';
+import { downloadPDF, downloadHTML, copyAsText, downloadProjectBackup, readProjectBackup } from '../lib/exportUtils';
 import { downloadDOCX } from '../lib/exportDocx';
+import { getAIErrorMessage } from '../lib/aiErrors';
+import {
+  ACHIEVEMENT_TEMPLATES,
+  BULLET_TEMPLATES,
+  SKILL_PRESETS,
+  SUMMARY_TEMPLATES,
+  buildBulletTemplate,
+  buildSummaryTemplate,
+  mergeSkills,
+  type AchievementTemplateId,
+  type BulletTemplateId,
+  type SkillPresetId,
+  type SummaryTemplateId,
+} from '../lib/localTemplates';
 import ClassicTemplate from '../components/templates/ClassicTemplate';
 import ModernTemplate from '../components/templates/ModernTemplate';
 import MinimalTemplate from '../components/templates/MinimalTemplate';
@@ -21,11 +35,17 @@ import ATSScorePanel from '../components/ATSScorePanel';
 import LinkedInPanel from '../components/LinkedInPanel';
 import SavedCVsPanel from '../components/SavedCVsPanel';
 import TailorPanel from '../components/TailorPanel';
+import ResumeCoachPanel from '../components/ResumeCoachPanel';
+import { analyzeResume, type InsightSection } from '../lib/resumeInsights';
+
+// ── Toast system ──────────────────────────────────────────────────────────────
+interface Toast { id: number; msg: string; type: 'ok' | 'err' | 'info'; }
+let toastId = 0;
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 function formToResume(form: FormData): ResumeOutput {
   return {
-    name: form.name, title: form.jobTitle, email: form.email,
+    name: form.name, title: form.title, email: form.email,
     phone: form.phone, location: form.location, linkedin: form.linkedin,
     summary: form.summary,
     experience: form.experience.filter(e => e.company || e.role).map(e => ({
@@ -44,26 +64,57 @@ function formToResume(form: FormData): ResumeOutput {
   };
 }
 
+// General ATS score — computed locally, no API needed
+function computeQuickScore(r: ResumeOutput): number {
+  let score = 0;
+  // Contact info (25 pts)
+  if (r.email) score += 6;
+  if (r.phone) score += 6;
+  if (r.location) score += 6;
+  if (r.linkedin) score += 7;
+  // Summary (15 pts)
+  const sw = r.summary?.trim().split(/\s+/).filter(Boolean).length ?? 0;
+  if (sw > 30) score += 15; else if (sw > 10) score += 8;
+  // Bullets with action verbs (25 pts)
+  const VERBS = ['led', 'built', 'increased', 'decreased', 'developed', 'managed', 'delivered', 'launched', 'designed', 'implemented', 'grew', 'achieved', 'generated', 'saved', 'automated', 'drove', 'executed'];
+  const bullets = r.experience?.flatMap(e => e.bullets ?? []) ?? [];
+  const withVerb = bullets.filter(b => VERBS.some(v => b.toLowerCase().startsWith(v))).length;
+  if (bullets.length > 0) score += Math.round((withVerb / bullets.length) * 25);
+  // Quantification (20 pts)
+  const quant = bullets.filter(b => /\d+(%|\+|k|m|\$|x)/.test(b)).length;
+  if (bullets.length > 0) score += Math.round((quant / bullets.length) * 20);
+  // Skills (15 pts)
+  const sc = r.skills?.length ?? 0;
+  if (sc >= 8) score += 15; else if (sc >= 4) score += 8; else if (sc > 0) score += 4;
+  return Math.min(100, score);
+}
+
 function resumeWordCount(r: ResumeOutput): number {
-  const all = [
-    r.summary,
-    ...(r.experience?.flatMap(e => e.bullets) ?? []),
-    ...(r.achievements ?? []),
-    r.skills?.join(' ') ?? '',
-  ].join(' ');
+  const all = [r.summary, ...(r.experience?.flatMap(e => e.bullets) ?? []), ...(r.achievements ?? []), r.skills?.join(' ') ?? ''].join(' ');
   return all.trim() ? all.trim().split(/\s+/).length : 0;
 }
 
 function resumeLengthLabel(words: number): { label: string; color: string } {
   if (words < 150) return { label: 'Too short', color: '#f87171' };
-  if (words < 400) return { label: 'Ideal length', color: '#4ade80' };
+  if (words < 400) return { label: 'Ideal', color: '#4ade80' };
   if (words < 600) return { label: 'A bit long', color: '#fbbf24' };
   return { label: 'Too long', color: '#f87171' };
 }
 
+function hasResumeContent(resume: ResumeOutput): boolean {
+  return Boolean(
+    resume.name ||
+    resume.title ||
+    resume.summary ||
+    resume.skills.length ||
+    resume.experience.some(exp => exp.company || exp.role || exp.bullets.length) ||
+    resume.education.some(edu => edu.institution || edu.degree)
+  );
+}
+
 const EMPTY_EXP = (): Experience => ({ company: '', role: '', start: '', end: '', desc: '' });
 const EMPTY_EDU = (): Education => ({ institution: '', degree: '', start: '', end: '' });
-const EMPTY_FORM = (): FormData => ({ name: '', jobTitle: '', email: '', phone: '', location: '', linkedin: '', summary: '', skills: '', achievements: '', experience: [EMPTY_EXP()], education: [EMPTY_EDU()] });
+const EMPTY_FORM = (): FormData => ({ name: '', title: '', email: '', phone: '', location: '', linkedin: '', summary: '', skills: '', achievements: '', experience: [EMPTY_EXP()], education: [EMPTY_EDU()] });
 
 type TemplateId = 'classic' | 'modern' | 'minimal' | 'executive' | 'creative' | 'compact' | 'bold';
 const TEMPLATES: { id: TemplateId; label: string; desc: string; color: string }[] = [
@@ -80,6 +131,7 @@ const TEMPLATE_MAP = { classic: ClassicTemplate, modern: ModernTemplate, minimal
 const LEFT_TABS = ['Basics', 'Experience', 'Education', 'Skills'] as const;
 const RIGHT_PANELS = [
   { id: 'preview', label: 'Preview', icon: '📄' },
+  { id: 'coach', label: 'Coach', icon: '✓' },
   { id: 'saved', label: 'My CVs', icon: '💾' },
   { id: 'tailor', label: 'Tailor', icon: '🎯' },
   { id: 'cover', label: 'Cover Letter', icon: '✉' },
@@ -91,6 +143,8 @@ type RightPanel = (typeof RIGHT_PANELS)[number]['id'];
 // ─────────────────────────────────────────────────────────────────────────────
 export default function Home() {
   const [dark, setDark] = useState(true);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
   const [activeTab, setActiveTab] = useState(0);
   const [rightPanel, setRightPanel] = useState<RightPanel>('preview');
   const [template, setTemplate] = useState<TemplateId>('classic');
@@ -102,11 +156,15 @@ export default function Home() {
   const [referralCopied, setReferralCopied] = useState(false);
   const [savingCV, setSavingCV] = useState(false);
   const [improvingIdx, setImprovingIdx] = useState<string | null>(null);
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const [autoSaveLabel, setAutoSaveLabel] = useState('');
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastAutoSave = useRef<number>(0);
+  const backupInputRef = useRef<HTMLInputElement | null>(null);
 
   const router = useRouter();
-  // const { user, profile, isPro, refreshProfile } = useAuth(); (replaced with temporary override for testing)
-  const { user, profile, isPro: _isPro, refreshProfile } = useAuth();
-  const isPro = true; // testing only — remove this line before going live
+  const { user, profile, refreshProfile } = useAuth();
+  const isPro = true; // testing — remove before going live
 
   const [form, setForm] = useState<FormData>(() => {
     if (typeof window === 'undefined') return EMPTY_FORM();
@@ -122,141 +180,248 @@ export default function Home() {
   const [coverLetter, setCoverLetter] = useState('');
   const [loading, setLoading] = useState(false);
   const [coverLoading, setCoverLoading] = useState(false);
-  const [status, setStatus] = useState('');
-  const [statusType, setStatusType] = useState<'ok' | 'err'>('ok');
   const [jobDesc, setJobDesc] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [hiringMgr, setHiringMgr] = useState('');
   const [copyDone, setCopyDone] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
 
-  useEffect(() => { if (resume) localStorage.setItem('resume-output', JSON.stringify(resume)); }, [resume]);
+  // ── Toast helper ──────────────────────────────────────────────────────────
+  const toast = useCallback((msg: string, type: 'ok' | 'err' | 'info' = 'ok', duration = 3500) => {
+    const id = ++toastId;
+    setToasts(prev => [...prev, { id, msg, type }]);
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), duration);
+  }, []);
+
+  // ── Persist ───────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (resume) localStorage.setItem('resume-output', JSON.stringify(resume));
+    else localStorage.removeItem('resume-output');
+  }, [resume]);
   useEffect(() => { document.documentElement.classList.toggle('dark', dark); document.body.style.background = dark ? '#111827' : '#f9fafb'; }, [dark]);
   useEffect(() => { localStorage.setItem('resume-form', JSON.stringify(form)); }, [form]);
 
-  const setF = (k: keyof FormData, v: string) => setForm(f => ({ ...f, [k]: v }));
-  const upExp = (i: number, k: keyof Experience, v: string) => setForm(f => { const e = [...f.experience]; e[i] = { ...e[i], [k]: v }; return { ...f, experience: e }; });
-  const upEdu = (i: number, k: keyof Education, v: string) => setForm(f => { const e = [...f.education]; e[i] = { ...e[i], [k]: v }; return { ...f, education: e }; });
-  const addExp = () => setForm(f => ({ ...f, experience: [...f.experience, EMPTY_EXP()] }));
-  const delExp = (i: number) => setForm(f => ({ ...f, experience: f.experience.filter((_, x) => x !== i) }));
-  const addEdu = () => setForm(f => ({ ...f, education: [...f.education, EMPTY_EDU()] }));
-  const delEdu = (i: number) => setForm(f => ({ ...f, education: f.education.filter((_, x) => x !== i) }));
+  // ── Auto-save to Firestore every 30s ─────────────────────────────────────
+  useEffect(() => {
+    if (!user || !resume) return;
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(async () => {
+      const now = Date.now();
+      if (now - lastAutoSave.current < 25000) return; // debounce
+      lastAutoSave.current = now;
+      try {
+        const cv: SavedCV = {
+          id: 'autosave',
+          name: '⟳ Auto-saved',
+          resume,
+          formData: form,
+          ...(coverLetter ? { coverLetter } : {}),
+          updatedAt: now,
+        };
+        await saveCV(user.uid, cv);
+        setAutoSaveLabel('Auto-saved ✓');
+        setTimeout(() => setAutoSaveLabel(''), 2500);
+      } catch { /* silent fail — auto-save is best effort */ }
+    }, 30000);
+    return () => { if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current); };
+  }, [form, resume, coverLetter, user]);
+
+  const markFormEdited = () => setResume(null);
+  const setF = (k: keyof FormData, v: string) => { markFormEdited(); setForm(f => ({ ...f, [k]: v })); };
+  const upExp = (i: number, k: keyof Experience, v: string) => { markFormEdited(); setForm(f => { const e = [...f.experience]; e[i] = { ...e[i], [k]: v }; return { ...f, experience: e }; }); };
+  const upEdu = (i: number, k: keyof Education, v: string) => { markFormEdited(); setForm(f => { const e = [...f.education]; e[i] = { ...e[i], [k]: v }; return { ...f, education: e }; }); };
+  const addExp = () => { markFormEdited(); setForm(f => ({ ...f, experience: [...f.experience, EMPTY_EXP()] })); };
+  const delExp = (i: number) => { markFormEdited(); setForm(f => ({ ...f, experience: f.experience.filter((_, x) => x !== i) })); };
+  const addEdu = () => { markFormEdited(); setForm(f => ({ ...f, education: [...f.education, EMPTY_EDU()] })); };
+  const delEdu = (i: number) => { markFormEdited(); setForm(f => ({ ...f, education: f.education.filter((_, x) => x !== i) })); };
+
+  const applySummaryTemplate = (id: SummaryTemplateId) => {
+    setF('summary', buildSummaryTemplate(form, id));
+    toast('Summary template applied.', 'info');
+  };
+
+  const appendBulletTemplate = (index: number, id: BulletTemplateId) => {
+    const current = form.experience[index]?.desc.trim();
+    const nextLine = buildBulletTemplate(form.experience[index], id);
+    upExp(index, 'desc', current ? `${current}\n${nextLine}` : nextLine);
+  };
+
+  const applySkillPreset = (id: SkillPresetId) => {
+    setF('skills', mergeSkills(form.skills, id));
+    toast('Skill pack added.', 'info');
+  };
+
+  const appendAchievementTemplate = (id: AchievementTemplateId) => {
+    const template = ACHIEVEMENT_TEMPLATES.find(item => item.id === id)?.text;
+    if (!template) return;
+    const current = form.achievements.trim();
+    setF('achievements', current ? `${current}\n${template}` : template);
+  };
 
   const requirePro = (action: () => void) => { if (!isPro) { setShowUpgrade(true); return; } action(); };
 
-  // ── Improve single bullet ─────────────────────────────────────────────────
-  const improveBullet = async (expIdx: number, bulletIdx: number) => {
+  // ── Improve bullet ────────────────────────────────────────────────────────
+  const improveBullet = async (expIdx: number) => {
     const exp = form.experience[expIdx];
     if (!exp.desc.trim()) return;
-    const key = `${expIdx}-${bulletIdx}`;
-    setImprovingIdx(key);
+    setImprovingIdx(`${expIdx}-0`);
     try {
-      const res = await fetch('/api/improve-bullet', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          bullet: exp.desc,
-          role: exp.role,
-          company: exp.company,
-        }),
-      });
+      const res = await fetch('/api/improve-bullet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bullet: exp.desc, role: exp.role, company: exp.company }) });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       upExp(expIdx, 'desc', data.improved);
-      setStatus('Bullet improved! ✓'); setStatusType('ok');
+      toast('Bullet improved! ✓', 'ok');
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : '';
-      setStatus(msg.includes('429') || msg.includes('quota') ? 'Rate limit reached. Please wait.' : 'Failed to improve bullet. Please try again.');
-      setStatusType('err');
+      toast(getAIErrorMessage(e, 'Failed to improve bullet.'), 'err');
     } finally { setImprovingIdx(null); }
   };
 
   const generateResume = async () => {
-    if (!form.name && !form.jobTitle) { setStatus('Please fill in your name and job title.'); setStatusType('err'); return; }
-    setLoading(true); setStatus('AI is crafting your resume…'); setStatusType('ok');
+    if (!form.name && !form.title) { toast('Please fill in your name and job title.', 'err'); return; }
+    setLoading(true); toast('AI is crafting your resume…', 'info', 8000);
     try {
       const res = await fetch('/api/generate-resume', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      setResume(data.resume); setStatus('Resume generated! ✓'); setRightPanel('preview');
+      setResume(data.resume); setRightPanel('preview');
+      toast('Resume generated! ✓', 'ok');
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : '';
-      setStatus(msg.includes('429') || msg.includes('quota') ? 'Rate limit reached. Please wait.' : 'Failed to generate. Please try again.');
-      setStatusType('err');
+      toast(getAIErrorMessage(e, 'Failed to generate. Please try again.'), 'err', 5000);
     } finally { setLoading(false); }
   };
 
   const generateCoverLetter = async () => {
-    if (!resume) { setStatus('Generate your resume first.'); setStatusType('err'); return; }
+    if (!usableResume) { toast('Fill in your resume details first.', 'err'); return; }
     setCoverLoading(true);
     try {
-      const res = await fetch('/api/generate-cover-letter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ resume, jobDescription: jobDesc, companyName, hiringManager: hiringMgr }) });
+      const res = await fetch('/api/generate-cover-letter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ resume: usableResume, jobDescription: jobDesc, companyName, hiringManager: hiringMgr }) });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setCoverLetter(data.coverLetter); setRightPanel('cover');
+      toast('Cover letter generated! ✓', 'ok');
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : '';
-      setStatus(msg.includes('429') || msg.includes('quota') ? 'Rate limit reached. Please wait.' : 'Failed to generate cover letter.');
-      setStatusType('err');
+      toast(getAIErrorMessage(e, 'Failed to generate cover letter.'), 'err', 5000);
     } finally { setCoverLoading(false); }
   };
 
   const handleCopy = () => {
-    if (!resume) return;
-    navigator.clipboard.writeText(copyAsText(resume));
+    if (!usableResume) return;
+    navigator.clipboard.writeText(copyAsText(usableResume));
     setCopyDone(true); setTimeout(() => setCopyDone(false), 2000);
+  };
+
+  const exportBackup = () => {
+    downloadProjectBackup({
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      form,
+      resume,
+      coverLetter,
+      template,
+    });
+    setExportOpen(false);
+    toast('Editable backup downloaded.', 'ok');
+  };
+
+  const importBackup = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    try {
+      const backup = await readProjectBackup(file);
+      setForm(backup.form);
+      setResume(backup.resume);
+      setCoverLetter(backup.coverLetter);
+      if (TEMPLATES.some(item => item.id === backup.template)) {
+        setTemplate(backup.template as TemplateId);
+      }
+      setRightPanel('preview');
+      toast('Backup imported.', 'ok');
+    } catch (error) {
+      console.error('Failed to import backup:', error);
+      toast('Could not import that backup file.', 'err');
+    }
   };
 
   const clearAll = () => {
     localStorage.removeItem('resume-form'); localStorage.removeItem('resume-output');
     setForm(EMPTY_FORM()); setResume(null); setCoverLetter('');
+    toast('Cleared.', 'info');
   };
 
   // ── Saved CVs ─────────────────────────────────────────────────────────────
   const handleSaveCV = async (name: string) => {
-    if (!user || !resume) return;
+    if (!user) { toast('Sign in to save CVs.', 'err'); return; }
     setSavingCV(true);
     try {
-      const cv: SavedCV = { id: Date.now().toString(), name, resume, coverLetter: coverLetter || undefined, updatedAt: Date.now() };
+      const cv: SavedCV = {
+        id: Date.now().toString(),
+        name,
+        resume: resume ?? formToResume(form),
+        formData: form,
+        ...(coverLetter ? { coverLetter } : {}),
+        updatedAt: Date.now(),
+      };
       await saveCV(user.uid, cv);
       await refreshProfile();
-      setStatus('CV saved! ✓'); setStatusType('ok');
-    } catch { setStatus('Failed to save CV.'); setStatusType('err'); }
+      toast(`"${name}" saved! ✓`, 'ok');
+    } catch (error) {
+      console.error('Failed to save CV:', error);
+      toast('Failed to save CV.', 'err');
+    }
     finally { setSavingCV(false); }
   };
 
   const handleDeleteCV = async (id: string) => {
     if (!user) return;
-    try { await deleteCV(user.uid, id); await refreshProfile(); }
-    catch { setStatus('Failed to delete.'); setStatusType('err'); }
+    try { await deleteCV(user.uid, id); await refreshProfile(); toast('CV deleted.', 'info'); }
+    catch { toast('Failed to delete.', 'err'); }
   };
 
+  // ── Load CV back into form ────────────────────────────────────────────────
   const handleLoadCV = (cv: SavedCV) => {
     setResume(cv.resume);
+    // Restore form data if saved — this is the key feature
+    if (cv.formData) {
+      setForm(cv.formData);
+      toast(`Loaded "${cv.name}" — form and preview restored.`, 'ok');
+    } else {
+      toast(`Loaded "${cv.name}" — preview restored.`, 'ok');
+    }
     if (cv.coverLetter) setCoverLetter(cv.coverLetter);
     setRightPanel('preview');
-    setStatus(`Loaded: ${cv.name}`); setStatusType('ok');
   };
 
-  // ── payment ────────────────────────────────────────────────────────────────
-  const handleUpgrade = () => {
-  // Payment not yet configured
-  // Replace this with your payment provider when ready
-  alert('Payment coming soon! Contact us to upgrade.');
-};
+  const handleUpgrade = () => { alert('Payment coming soon! Contact us to upgrade.'); };
 
-  // ── Referral link ─────────────────────────────────────────────────────────
   const referralLink = user ? `${typeof window !== 'undefined' ? window.location.origin : ''}/?ref=${user.uid.slice(0, 8)}` : '';
-  const copyReferral = () => {
-    navigator.clipboard.writeText(referralLink);
-    setReferralCopied(true); setTimeout(() => setReferralCopied(false), 2000);
-  };
+  const copyReferral = () => { navigator.clipboard.writeText(referralLink); setReferralCopied(true); setTimeout(() => setReferralCopied(false), 2000); };
 
   const liveResume = resume ?? formToResume(form);
+  const usableResume = hasResumeContent(liveResume) ? liveResume : null;
+  const coachInsights = analyzeResume(usableResume);
   const TemplateComponent = TEMPLATE_MAP[template];
   const savedCVs = profile?.cvs ?? [];
   const words = resumeWordCount(liveResume);
   const lengthInfo = resumeLengthLabel(words);
+  const quickScore = computeQuickScore(liveResume);
+  const scoreColor = quickScore >= 80 ? '#4ade80' : quickScore >= 60 ? '#fbbf24' : '#f87171';
+
+  const focusCoachSection = (section: InsightSection) => {
+    if (section === 'ats') {
+      setRightPanel('ats');
+      return;
+    }
+
+    const tabBySection: Record<Exclude<InsightSection, 'ats'>, number> = {
+      basics: 0,
+      experience: 1,
+      education: 2,
+      skills: 3,
+    };
+    setActiveTab(tabBySection[section]);
+  };
 
   // ── Style tokens ──────────────────────────────────────────────────────────
   const D = dark;
@@ -271,20 +436,25 @@ export default function Home() {
   const inp: React.CSSProperties = { width: '100%', padding: '10px 14px', fontSize: 13, borderRadius: 12, border: `1px solid ${cardBorder}`, background: D ? '#111827' : '#fff', color: textPrimary, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', transition: 'border-color 0.15s' };
   const lbl: React.CSSProperties = { display: 'block', fontSize: 12, fontWeight: 500, color: textSec, marginBottom: 6, marginTop: 12 };
   const secCard: React.CSSProperties = { background: D ? '#111827' : '#f9fafb', border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 16, marginBottom: 12 };
+  const chipBtn: React.CSSProperties = { fontSize: 11, padding: '5px 9px', borderRadius: 8, border: `1px solid ${cardBorder}`, background: subtleBg, color: textSec, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 };
 
   const progressItems = [
-    { label: 'Basics', filled: !!(form.name || form.jobTitle) },
+    { label: 'Basics', filled: !!(form.name || form.title) },
     { label: 'Experience', filled: form.experience.some(e => e.company) },
     { label: 'Education', filled: form.education.some(e => e.institution) },
     { label: 'Skills', filled: !!(form.skills) },
   ];
 
+  if (!mounted) return null;
+
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: bg, color: textPrimary, fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif' }}>
       <style>{`
-        @keyframes spin    { to { transform: rotate(360deg); } }
-        @keyframes fadeIn  { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
-        @keyframes modalIn { from { opacity:0; transform:scale(0.95); } to { opacity:1; transform:scale(1); } }
+        @keyframes spin      { to { transform: rotate(360deg); } }
+        @keyframes fadeIn    { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes modalIn   { from { opacity:0; transform:scale(0.95); } to { opacity:1; transform:scale(1); } }
+        @keyframes toastIn   { from { opacity:0; transform:translateX(60px); } to { opacity:1; transform:translateX(0); } }
+        @keyframes toastOut  { from { opacity:1; } to { opacity:0; transform:translateX(60px); } }
         input:focus, textarea:focus { border-color: #1D9E75 !important; box-shadow: 0 0 0 3px rgba(29,158,117,0.15) !important; }
         * { box-sizing: border-box; }
         ::-webkit-scrollbar { width: 4px; }
@@ -294,10 +464,32 @@ export default function Home() {
         .hov-teal:hover { background: rgba(29,158,117,0.1) !important; }
         .hov-row:hover  { background: ${D ? 'rgba(55,65,81,0.5)' : '#f9fafb'} !important; }
         .hov-tab:hover  { opacity: 0.8; }
-        .improve-btn { opacity: 0; transition: opacity 0.15s; }
-        .bullet-row:hover .improve-btn { opacity: 1; }
         @media print { .no-print { display: none !important; } body { background: white !important; } }
+        @media (max-width: 768px) {
+          .left-panel { width: 100% !important; min-width: unset !important; border-right: none !important; border-bottom: 1px solid ${cardBorder}; max-height: 50vh; }
+          .body-wrap  { flex-direction: column !important; height: auto !important; overflow: visible !important; }
+          .right-panel { height: 50vh; }
+          .header-pills { display: none !important; }
+          .word-pill { display: none !important; }
+        }
       `}</style>
+      <input ref={backupInputRef} type="file" accept="application/json,.json" onChange={importBackup} style={{ display: 'none' }} />
+
+      {/* ── TOAST CONTAINER ── */}
+      <div style={{ position: 'fixed', top: 16, right: 16, zIndex: 9999, display: 'flex', flexDirection: 'column', gap: 8, pointerEvents: 'none' }}>
+        {toasts.map(t => (
+          <div key={t.id} style={{
+            padding: '10px 16px', borderRadius: 12, fontSize: 13, fontWeight: 500,
+            background: t.type === 'err' ? '#ef4444' : t.type === 'info' ? (D ? '#374151' : '#1f2937') : '#1D9E75',
+            color: '#fff', boxShadow: '0 4px 20px rgba(0,0,0,0.25)',
+            animation: 'toastIn 0.25s ease', maxWidth: 320,
+            display: 'flex', alignItems: 'center', gap: 8, pointerEvents: 'auto',
+          }}>
+            <span>{t.type === 'err' ? '⚠' : t.type === 'info' ? 'ℹ' : '✓'}</span>
+            {t.msg}
+          </div>
+        ))}
+      </div>
 
       {/* ── PRINT VIEW ── */}
       {showPrintView && (
@@ -316,48 +508,55 @@ export default function Home() {
       )}
 
       {/* ── HEADER ── */}
-      <header className="no-print" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 20px', borderBottom: `1px solid ${cardBorder}`, background: cardBg, flexShrink: 0, zIndex: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 10, background: 'linear-gradient(135deg,#0F6E56,#1D9E75)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 14, flexShrink: 0 }}>A</div>
-          <span style={{ fontWeight: 700, fontSize: 15, color: textPrimary, letterSpacing: '-0.01em' }}>Ananta<span style={{ color: '#1D9E75' }}>CV</span></span>
+      <header className="no-print" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderBottom: `1px solid ${cardBorder}`, background: cardBg, flexShrink: 0, zIndex: 10, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ width: 30, height: 30, borderRadius: 9, background: 'linear-gradient(135deg,#0F6E56,#1D9E75)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 13, flexShrink: 0 }}>A</div>
+          <span style={{ fontWeight: 700, fontSize: 14, color: textPrimary, letterSpacing: '-0.01em' }}>Ananta<span style={{ color: '#1D9E75' }}>CV</span></span>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginLeft: 12 }}>
+        {/* Progress pills — hidden on mobile */}
+        <div className="header-pills" style={{ display: 'flex', alignItems: 'center', gap: 4, marginLeft: 8 }}>
           {progressItems.map(({ label, filled }) => (
-            <span key={label} style={{ fontSize: 11, padding: '3px 10px', borderRadius: 99, fontWeight: 500, background: filled ? 'rgba(29,158,117,0.15)' : subtleBg, color: filled ? '#1D9E75' : textMuted, border: `1px solid ${filled ? 'rgba(29,158,117,0.3)' : cardBorder}`, transition: 'all 0.2s' }}>
+            <span key={label} style={{ fontSize: 10, padding: '2px 8px', borderRadius: 99, fontWeight: 500, background: filled ? 'rgba(29,158,117,0.15)' : subtleBg, color: filled ? '#1D9E75' : textMuted, border: `1px solid ${filled ? 'rgba(29,158,117,0.3)' : cardBorder}` }}>
               {filled ? '✓ ' : ''}{label}
             </span>
           ))}
         </div>
 
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-          {/* Word count pill */}
-          <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 99, background: subtleBg, color: textMuted, border: `1px solid ${cardBorder}` }}>
-            {words}w · <span style={{ color: lengthInfo.color, fontWeight: 600 }}>{lengthInfo.label}</span>
-          </span>
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          {/* Word count + ATS score — hidden on mobile */}
+          <div className="word-pill" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span suppressHydrationWarning style={{ fontSize: 10, padding: '2px 8px', borderRadius: 99, fontWeight: 500, background: subtleBg, color: textMuted, border: `1px solid ${cardBorder}` }}>
+              {words}w · <span style={{ color: lengthInfo.color, fontWeight: 600 }}>{lengthInfo.label}</span>
+            </span>
+            {/* ATS score badge on preview tab */}
+            <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 99, background: subtleBg, color: scoreColor, border: `1px solid ${cardBorder}`, fontWeight: 600, cursor: 'pointer' }} onClick={() => setRightPanel('ats')} title="Click to view full ATS analysis">
+              ⚡ {quickScore}
+            </span>
+          </div>
 
-          {isPro && <span style={{ fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 99, background: 'rgba(29,158,117,0.15)', color: '#1D9E75', border: '1px solid rgba(29,158,117,0.3)' }}>✦ Pro</span>}
+          {/* Auto-save indicator */}
+          {autoSaveLabel && (
+            <span style={{ fontSize: 11, color: '#1D9E75', fontWeight: 500 }}>{autoSaveLabel}</span>
+          )}
 
-          <button onClick={() => setDark(d => !d)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 10, fontSize: 12, fontWeight: 500, border: `1px solid ${cardBorder}`, background: subtleBg, color: textSec, cursor: 'pointer', fontFamily: 'inherit' }}>
-            {D ? '☀ Light' : '🌙 Dark'}
+          {isPro && <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 99, background: 'rgba(29,158,117,0.15)', color: '#1D9E75', border: '1px solid rgba(29,158,117,0.3)' }}>✦ Pro</span>}
+
+          <button onClick={() => setDark(d => !d)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 9, fontSize: 12, fontWeight: 500, border: `1px solid ${cardBorder}`, background: subtleBg, color: textSec, cursor: 'pointer', fontFamily: 'inherit' }}>
+            {D ? '☀' : '🌙'}
           </button>
 
-          {!isPro && (
-            <button onClick={() => setShowUpgrade(true)} style={{ fontSize: 12, padding: '6px 14px', borderRadius: 8, border: 'none', background: '#1D9E75', color: '#fff', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}>✦ Upgrade</button>
-          )}
+          {!isPro && <button onClick={() => setShowUpgrade(true)} style={{ fontSize: 12, padding: '5px 12px', borderRadius: 8, border: 'none', background: '#1D9E75', color: '#fff', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}>✦ Pro</button>}
 
-          {/* Referral button */}
-          {user && (
-            <button onClick={() => setShowReferral(true)} style={{ fontSize: 12, padding: '6px 12px', borderRadius: 8, border: `1px solid ${cardBorder}`, background: 'transparent', color: textSec, cursor: 'pointer', fontFamily: 'inherit' }}>🎁 Refer</button>
-          )}
+          {user && <button onClick={() => setShowReferral(true)} style={{ fontSize: 12, padding: '5px 10px', borderRadius: 8, border: `1px solid ${cardBorder}`, background: 'transparent', color: textSec, cursor: 'pointer', fontFamily: 'inherit' }}>🎁</button>}
 
           {user ? (
             <div style={{ position: 'relative' }}>
-              <button onClick={() => setShowUserMenu(m => !m)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 12px', borderRadius: 10, border: `1px solid ${cardBorder}`, background: subtleBg, color: textSec, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}>
-                <div style={{ width: 22, height: 22, borderRadius: '50%', background: '#1D9E75', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 11, fontWeight: 700 }}>
+              <button onClick={() => setShowUserMenu(m => !m)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 9, border: `1px solid ${cardBorder}`, background: subtleBg, color: textSec, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}>
+                <div style={{ width: 20, height: 20, borderRadius: '50%', background: '#1D9E75', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 10, fontWeight: 700 }}>
                   {(user.displayName ?? user.email ?? '?')[0].toUpperCase()}
                 </div>
-                {user.displayName ?? user.email?.split('@')[0]}
+                <span style={{ maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.displayName ?? user.email?.split('@')[0]}</span>
               </button>
               {showUserMenu && (
                 <>
@@ -377,32 +576,31 @@ export default function Home() {
               )}
             </div>
           ) : (
-            <button onClick={() => router.push('/auth')} style={{ fontSize: 12, padding: '6px 14px', borderRadius: 8, border: `1px solid ${cardBorder}`, background: 'transparent', color: textSec, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6 }}>👤 Login</button>
+            <button onClick={() => router.push('/auth')} style={{ fontSize: 12, padding: '5px 12px', borderRadius: 8, border: `1px solid ${cardBorder}`, background: 'transparent', color: textSec, cursor: 'pointer', fontFamily: 'inherit' }}>👤 Login</button>
           )}
         </div>
       </header>
 
       {/* ── BODY ── */}
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden', height: 'calc(100vh - 57px)' }}>
+      <div className="body-wrap" style={{ display: 'flex', flex: 1, overflow: 'hidden', height: 'calc(100vh - 53px)' }}>
 
         {/* ══ LEFT PANEL ══ */}
-        <div style={{ width: 380, minWidth: 300, display: 'flex', flexDirection: 'column', borderRight: `1px solid ${cardBorder}`, background: cardBg, flexShrink: 0 }}>
-          <div style={{ display: 'flex', padding: '12px 12px 10px', gap: 4, borderBottom: `1px solid ${cardBorder}`, flexShrink: 0 }}>
+        <div className="left-panel" style={{ width: 360, minWidth: 300, display: 'flex', flexDirection: 'column', borderRight: `1px solid ${cardBorder}`, background: cardBg, flexShrink: 0 }}>
+          <div style={{ display: 'flex', padding: '10px 10px 8px', gap: 3, borderBottom: `1px solid ${cardBorder}`, flexShrink: 0, overflowX: 'auto' }}>
             {LEFT_TABS.map((t, i) => (
-              <button key={t} onClick={() => setActiveTab(i)} className="hov-tab" style={{ padding: '7px 14px', fontSize: 12, fontWeight: 500, borderRadius: 10, border: 'none', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s', background: activeTab === i ? '#1D9E75' : 'transparent', color: activeTab === i ? '#fff' : textSec }}>
+              <button key={t} onClick={() => setActiveTab(i)} className="hov-tab" style={{ padding: '6px 12px', fontSize: 12, fontWeight: 500, borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s', background: activeTab === i ? '#1D9E75' : 'transparent', color: activeTab === i ? '#fff' : textSec, whiteSpace: 'nowrap' }}>
                 {t}
               </button>
             ))}
           </div>
 
-          <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
-            {/* BASICS */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: 14 }}>
             {activeTab === 0 && (
               <div style={{ animation: 'fadeIn 0.15s ease' }}>
                 <label style={lbl}>Full name <span style={{ color: '#1D9E75' }}>*</span></label>
                 <input style={inp} placeholder="Jane Smith" value={form.name} onChange={e => setF('name', e.target.value)} />
                 <label style={lbl}>Job title <span style={{ color: '#1D9E75' }}>*</span></label>
-                <input style={inp} placeholder="Senior Product Manager" value={form.jobTitle} onChange={e => setF('jobTitle', e.target.value)} />
+                <input style={inp} placeholder="Senior Product Manager" value={form.title} onChange={e => setF('title', e.target.value)} />
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                   <div><label style={lbl}>Email</label><input style={inp} type="email" placeholder="jane@email.com" value={form.email} onChange={e => setF('email', e.target.value)} /></div>
                   <div><label style={lbl}>Phone</label><input style={inp} placeholder="+1 555 000 0000" value={form.phone} onChange={e => setF('phone', e.target.value)} /></div>
@@ -413,66 +611,66 @@ export default function Home() {
                 </div>
                 <label style={{ ...lbl, marginTop: 12 }}>Summary <span style={{ color: textMuted, fontWeight: 400 }}>— optional</span></label>
                 <textarea style={{ ...inp, resize: 'vertical', lineHeight: 1.6 }} rows={3} placeholder="Paste an existing summary or leave blank…" value={form.summary} onChange={e => setF('summary', e.target.value)} />
+                <div style={{ marginTop: 8 }}>
+                  <span style={{ fontSize: 11, color: textMuted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Templates</span>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                    {SUMMARY_TEMPLATES.map(item => (
+                      <button key={item.id} type="button" onClick={() => applySummaryTemplate(item.id)} style={chipBtn}>
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
 
-            {/* EXPERIENCE — with AI improve bullet button */}
             {activeTab === 1 && (
               <div style={{ animation: 'fadeIn 0.15s ease' }}>
-                {form.experience.map((exp, i) => {
-                  const bullets = exp.desc.split('\n');
-                  return (
-                    <div key={i} style={secCard}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                        <span style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: textMuted }}>Position {i + 1}</span>
-                        {form.experience.length > 1 && <button onClick={() => delExp(i)} className="hov-red" style={{ fontSize: 11, color: textMuted, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>Remove</button>}
+                {form.experience.map((exp, i) => (
+                  <div key={i} style={secCard}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                      <span style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: textMuted }}>Position {i + 1}</span>
+                      {form.experience.length > 1 && <button onClick={() => delExp(i)} className="hov-red" style={{ fontSize: 11, color: textMuted, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>Remove</button>}
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                      <input style={inp} placeholder="Company" value={exp.company} onChange={e => upExp(i, 'company', e.target.value)} />
+                      <input style={inp} placeholder="Role / title" value={exp.role} onChange={e => upExp(i, 'role', e.target.value)} />
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
+                      <input style={inp} placeholder="Start (e.g. Jan 2021)" value={exp.start} onChange={e => upExp(i, 'start', e.target.value)} />
+                      <input style={inp} placeholder="End (or Present)" value={exp.end} onChange={e => upExp(i, 'end', e.target.value)} />
+                    </div>
+                    <div style={{ marginTop: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+                        <label style={{ ...lbl, marginTop: 0, marginBottom: 0 }}>Key achievements <span style={{ color: textMuted, fontWeight: 400 }}>— one per line</span></label>
+                        {isPro && (
+                          <button onClick={() => improveBullet(i)} disabled={improvingIdx === `${i}-0` || !exp.desc.trim()} style={{ fontSize: 11, padding: '3px 9px', borderRadius: 7, border: `1px solid rgba(29,158,117,0.4)`, background: 'transparent', color: '#1D9E75', cursor: !exp.desc.trim() ? 'not-allowed' : 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 4, opacity: !exp.desc.trim() ? 0.5 : 1 }}>
+                            {improvingIdx === `${i}-0` ? <Spin sm /> : '✦'} AI
+                          </button>
+                        )}
                       </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                        <input style={inp} placeholder="Company" value={exp.company} onChange={e => upExp(i, 'company', e.target.value)} />
-                        <input style={inp} placeholder="Role / title" value={exp.role} onChange={e => upExp(i, 'role', e.target.value)} />
-                      </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
-                        <input style={inp} placeholder="Start (e.g. Jan 2021)" value={exp.start} onChange={e => upExp(i, 'start', e.target.value)} />
-                        <input style={inp} placeholder="End (or Present)" value={exp.end} onChange={e => upExp(i, 'end', e.target.value)} />
-                      </div>
-                      //bullets with improve button
-                      <div style={{ marginTop: 8 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                          <label style={{ ...lbl, marginTop: 0, marginBottom: 0 }}>
-                            Key achievements <span style={{ color: textMuted, fontWeight: 400 }}>— one per line</span>
-                          </label>
-                          {isPro && (
-                            <button
-                              onClick={() => improveBullet(i, 0)}
-                              disabled={improvingIdx === `${i}-0` || !exp.desc.trim()}
-                              style={{ fontSize: 11, padding: '4px 10px', borderRadius: 8, border: `1px solid rgba(29,158,117,0.4)`, background: 'transparent', color: '#1D9E75', cursor: !exp.desc.trim() ? 'not-allowed' : 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 4, opacity: !exp.desc.trim() ? 0.5 : 1 }}>
-                              {improvingIdx === `${i}-0` ? <Spin sm /> : '✦'} Improve with AI
-                            </button>
-                          )}
-                        </div>
-                        <textarea
-                          style={{ ...inp, resize: 'vertical', lineHeight: 1.7, minHeight: 80 }}
-                          rows={3}
-                          placeholder={'Led team of 5 engineers to deliver product on time\nIncreased conversion rate by 23% through A/B testing\nReduced costs by $50k through process optimization'}
-                          value={exp.desc}
-                          onChange={e => upExp(i, 'desc', e.target.value)}
-                        />
+                      <textarea style={{ ...inp, resize: 'vertical', lineHeight: 1.7, minHeight: 76 }} rows={3} placeholder={'Led team of 5 to deliver on time\nIncreased conversion 23% via A/B testing\nReduced costs by $50k'} value={exp.desc} onChange={e => upExp(i, 'desc', e.target.value)} />
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                        {BULLET_TEMPLATES.map(item => (
+                          <button key={item.id} type="button" onClick={() => appendBulletTemplate(i, item.id)} style={chipBtn}>
+                            + {item.label}
+                          </button>
+                        ))}
                       </div>
                     </div>
-                  );
-                })}
+                  </div>
+                ))}
                 <button onClick={addExp} className="hov-teal" style={{ fontSize: 13, border: `1px solid rgba(29,158,117,0.4)`, borderRadius: 12, padding: '8px 16px', color: '#1D9E75', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6, transition: 'background 0.15s' }}>
                   <span style={{ fontSize: 16 }}>+</span> Add position
                 </button>
               </div>
             )}
 
-            {/* EDUCATION */}
             {activeTab === 2 && (
               <div style={{ animation: 'fadeIn 0.15s ease' }}>
                 {form.education.map((edu, i) => (
                   <div key={i} style={secCard}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                       <span style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: textMuted }}>Education {i + 1}</span>
                       {form.education.length > 1 && <button onClick={() => delEdu(i)} className="hov-red" style={{ fontSize: 11, color: textMuted, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>Remove</button>}
                     </div>
@@ -492,67 +690,91 @@ export default function Home() {
               </div>
             )}
 
-            {/* SKILLS */}
             {activeTab === 3 && (
               <div style={{ animation: 'fadeIn 0.15s ease' }}>
                 <label style={lbl}>Skills <span style={{ color: textMuted, fontWeight: 400 }}>— comma separated</span></label>
                 <textarea style={{ ...inp, resize: 'vertical', lineHeight: 1.6 }} rows={3} placeholder="Python, SQL, Figma, Leadership…" value={form.skills} onChange={e => setF('skills', e.target.value)} />
+                <div style={{ marginTop: 8 }}>
+                  <span style={{ fontSize: 11, color: textMuted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Skill packs</span>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                    {SKILL_PRESETS.map(item => (
+                      <button key={item.id} type="button" onClick={() => applySkillPreset(item.id)} style={chipBtn}>
+                        + {item.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <label style={{ ...lbl, marginTop: 16 }}>Achievements & Certifications</label>
                 <textarea style={{ ...inp, resize: 'vertical', lineHeight: 1.6 }} rows={3} placeholder="AWS Certified, built a product used by 50k users…" value={form.achievements} onChange={e => setF('achievements', e.target.value)} />
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                  {ACHIEVEMENT_TEMPLATES.map(item => (
+                    <button key={item.id} type="button" onClick={() => appendAchievementTemplate(item.id)} style={chipBtn}>
+                      + {item.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>
 
           {/* Buttons */}
-          <div style={{ padding: '14px 16px', borderTop: `1px solid ${cardBorder}`, display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0, background: cardBg }}>
-            <button onClick={() => requirePro(generateResume)} disabled={loading} style={{ width: '100%', padding: '11px 0', borderRadius: 12, border: 'none', background: loading ? '#5DCAA5' : '#1D9E75', color: '#fff', fontSize: 13, fontWeight: 500, cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: loading ? 0.8 : 1, transition: 'background 0.15s', fontFamily: 'inherit' }}>
+          <div style={{ padding: '12px 14px', borderTop: `1px solid ${cardBorder}`, display: 'flex', flexDirection: 'column', gap: 7, flexShrink: 0, background: cardBg }}>
+            <button onClick={() => requirePro(generateResume)} disabled={loading} style={{ width: '100%', padding: '10px 0', borderRadius: 11, border: 'none', background: loading ? '#5DCAA5' : '#1D9E75', color: '#fff', fontSize: 13, fontWeight: 500, cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: loading ? 0.8 : 1, transition: 'background 0.15s', fontFamily: 'inherit' }}>
               {loading ? <><Spinner light /> Generating…</> : isPro ? '✦ Enhance with AI' : '🔒 Enhance with AI (Pro)'}
             </button>
-            <button onClick={() => requirePro(generateCoverLetter)} disabled={coverLoading} style={{ width: '100%', padding: '9px 0', borderRadius: 12, border: `1px solid ${isPro ? 'rgba(29,158,117,0.5)' : cardBorder}`, background: 'transparent', color: isPro ? '#1D9E75' : textSec, fontSize: 13, fontWeight: 500, cursor: coverLoading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, transition: 'all 0.15s', fontFamily: 'inherit' }}>
-              {coverLoading ? <><Spinner /> Writing…</> : isPro ? '✉ Generate cover letter' : '🔒 Cover letter (Pro)'}
+            <button onClick={() => setRightPanel('cover')} style={{ width: '100%', padding: '8px 0', borderRadius: 11, border: `1px solid rgba(29,158,117,0.5)`, background: 'transparent', color: '#1D9E75', fontSize: 13, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, transition: 'all 0.15s', fontFamily: 'inherit' }}>
+              ✉ Cover letter tools
             </button>
-            <button onClick={clearAll} style={{ width: '100%', padding: '8px 0', borderRadius: 12, border: `1px solid ${cardBorder}`, background: 'transparent', color: textMuted, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+            <button onClick={clearAll} style={{ width: '100%', padding: '7px 0', borderRadius: 11, border: `1px solid ${cardBorder}`, background: 'transparent', color: textMuted, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
               Clear all
             </button>
-            {status && (
-              <div style={{ padding: '8px 12px', borderRadius: 10, fontSize: 12, textAlign: 'center', background: statusType === 'err' ? 'rgba(239,68,68,0.1)' : 'rgba(29,158,117,0.1)', color: statusType === 'err' ? '#f87171' : '#1D9E75', border: `1px solid ${statusType === 'err' ? 'rgba(239,68,68,0.2)' : 'rgba(29,158,117,0.2)'}` }}>
-                {status}
-              </div>
-            )}
           </div>
         </div>
 
         {/* ══ RIGHT PANEL ══ */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: bg }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderBottom: `1px solid ${cardBorder}`, background: cardBg, flexShrink: 0, gap: 8, flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+        <div className="right-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: bg }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 14px', borderBottom: `1px solid ${cardBorder}`, background: cardBg, flexShrink: 0, gap: 6, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
               {RIGHT_PANELS.map(p => {
-                const locked = !isPro && p.id !== 'preview' && p.id !== 'saved';
+                const locked = !isPro && p.id !== 'preview' && p.id !== 'coach' && p.id !== 'saved';
+                const isActive = rightPanel === p.id;
                 return (
-                  <button key={p.id} onClick={() => locked ? setShowUpgrade(true) : setRightPanel(p.id)} className="hov-tab" style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 12, fontWeight: 500, borderRadius: 10, border: 'none', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s', background: rightPanel === p.id ? '#1D9E75' : 'transparent', color: rightPanel === p.id ? '#fff' : textSec, opacity: locked ? 0.6 : 1 }}>
-                    <span style={{ fontSize: 12 }}>{locked ? '🔒' : p.icon}</span>
+                  <button key={p.id} onClick={() => locked ? setShowUpgrade(true) : setRightPanel(p.id)} className="hov-tab"
+                    style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', fontSize: 12, fontWeight: 500, borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s', background: isActive ? '#1D9E75' : 'transparent', color: isActive ? '#fff' : textSec, opacity: locked ? 0.6 : 1, position: 'relative' }}>
+                    <span style={{ fontSize: 11 }}>{locked ? '🔒' : p.icon}</span>
                     {p.label}
+                    {/* ATS score badge on the ATS tab */}
+                    {p.id === 'ats' && !locked && (
+                      <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 99, background: isActive ? 'rgba(255,255,255,0.25)' : scoreColor, color: isActive ? '#fff' : '#fff', marginLeft: 2 }}>
+                        {quickScore}
+                      </span>
+                    )}
+                    {p.id === 'coach' && !locked && (
+                      <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 99, background: isActive ? 'rgba(255,255,255,0.25)' : coachInsights.exportReady ? '#1D9E75' : '#fbbf24', color: '#fff', marginLeft: 2 }}>
+                        {coachInsights.score}
+                      </span>
+                    )}
                   </button>
                 );
               })}
             </div>
+
             {rightPanel === 'preview' && (
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                {/* Template picker */}
+              <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
                 <div style={{ position: 'relative' }}>
-                  <button onClick={() => setShowTemplates(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 12, fontWeight: 500, borderRadius: 10, border: `1px solid ${cardBorder}`, background: subtleBg, color: textSec, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  <button onClick={() => setShowTemplates(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', fontSize: 12, fontWeight: 500, borderRadius: 9, border: `1px solid ${cardBorder}`, background: subtleBg, color: textSec, cursor: 'pointer', fontFamily: 'inherit' }}>
                     🎨 {TEMPLATES.find(t => t.id === template)?.label} ▾
                   </button>
                   {showTemplates && (
                     <>
                       <div style={{ position: 'fixed', inset: 0, zIndex: 10 }} onClick={() => setShowTemplates(false)} />
-                      <div style={{ position: 'absolute', right: 0, top: '100%', marginTop: 6, zIndex: 20, background: cardBg, border: `1px solid ${cardBorder}`, borderRadius: 16, boxShadow: '0 10px 40px rgba(0,0,0,0.2)', overflow: 'hidden', width: 220 }}>
+                      <div style={{ position: 'absolute', right: 0, top: '100%', marginTop: 6, zIndex: 20, background: cardBg, border: `1px solid ${cardBorder}`, borderRadius: 14, boxShadow: '0 10px 40px rgba(0,0,0,0.2)', width: 190, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                         {TEMPLATES.map(t => (
-                          <button key={t.id} onClick={() => { setTemplate(t.id); setShowTemplates(false); }} style={{ width: '100%', textAlign: 'left', padding: '11px 16px', fontSize: 13, display: 'flex', alignItems: 'center', gap: 10, background: template === t.id ? 'rgba(29,158,117,0.08)' : 'transparent', color: textPrimary, cursor: 'pointer', fontFamily: 'inherit', border: 'none', borderBottom: `1px solid ${cardBorder}` }}>
-                            <div style={{ width: 8, height: 8, borderRadius: '50%', background: t.color, flexShrink: 0 }} />
+                          <button key={t.id} onClick={() => { setTemplate(t.id); setShowTemplates(false); }} style={{ width: '100%', textAlign: 'left', padding: '10px 14px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 9, background: template === t.id ? 'rgba(29,158,117,0.08)' : 'transparent', color: textPrimary, cursor: 'pointer', fontFamily: 'inherit', border: 'none', borderBottom: `1px solid ${cardBorder}` }}>
+                            <div style={{ width: 7, height: 7, borderRadius: '50%', background: t.color, flexShrink: 0 }} />
                             <div>
-                              <p style={{ margin: 0, fontWeight: 600, fontSize: 12, color: template === t.id ? '#1D9E75' : textPrimary }}>{t.label} {template === t.id ? '✓' : ''}</p>
-                              <p style={{ margin: 0, fontSize: 10, color: textMuted }}>{t.desc}</p>
+                              <p style={{ margin: 0, fontWeight: 600, fontSize: 11, color: template === t.id ? '#1D9E75' : textPrimary }}>{t.label} {template === t.id ? '✓' : ''}</p>
+                              <p style={{ margin: 0, fontSize: 9, color: textMuted }}>{t.desc}</p>
                             </div>
                           </button>
                         ))}
@@ -560,26 +782,22 @@ export default function Home() {
                     </>
                   )}
                 </div>
-                {/* Print view */}
-                <button onClick={() => setShowPrintView(true)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 12, fontWeight: 500, borderRadius: 10, border: `1px solid ${cardBorder}`, background: subtleBg, color: textSec, cursor: 'pointer', fontFamily: 'inherit' }}>
-                  🖨 Print
-                </button>
-                {/* Export */}
+                <button onClick={() => setShowPrintView(true)} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', fontSize: 12, fontWeight: 500, borderRadius: 9, border: `1px solid ${cardBorder}`, background: subtleBg, color: textSec, cursor: 'pointer', fontFamily: 'inherit' }}>🖨</button>
                 <div style={{ position: 'relative', flexShrink: 0 }}>
-                  <button onClick={() => setExportOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 12, fontWeight: 500, borderRadius: 10, border: 'none', background: '#1D9E75', color: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>
-                    ↓ Export ▾
-                  </button>
+                  <button onClick={() => setExportOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', fontSize: 12, fontWeight: 500, borderRadius: 9, border: 'none', background: '#1D9E75', color: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>↓ Export ▾</button>
                   {exportOpen && (
                     <>
                       <div style={{ position: 'fixed', inset: 0, zIndex: 10 }} onClick={() => setExportOpen(false)} />
-                      <div style={{ position: 'absolute', right: 0, top: '100%', marginTop: 6, zIndex: 20, background: cardBg, border: `1px solid ${cardBorder}`, borderRadius: 16, boxShadow: '0 10px 40px rgba(0,0,0,0.3)', overflow: 'hidden', width: 210 }}>
+                      <div style={{ position: 'absolute', right: 0, top: '100%', marginTop: 6, zIndex: 20, background: cardBg, border: `1px solid ${cardBorder}`, borderRadius: 14, boxShadow: '0 10px 40px rgba(0,0,0,0.3)', overflow: 'hidden', width: 200 }}>
                         {[
                           { label: 'Download PDF', action: () => { downloadPDF('resume-output', `${liveResume.name}_resume.pdf`); setExportOpen(false); } },
                           { label: 'Download Word (.docx)', action: () => { downloadDOCX(liveResume); setExportOpen(false); } },
                           { label: 'Download HTML', action: () => { downloadHTML(liveResume); setExportOpen(false); } },
                           { label: copyDone ? 'Copied!' : 'Copy as text', action: () => { handleCopy(); setExportOpen(false); } },
+                          { label: 'Backup editable project', action: exportBackup },
+                          { label: 'Import backup', action: () => { backupInputRef.current?.click(); setExportOpen(false); } },
                         ].map(item => (
-                          <button key={item.label} onClick={item.action} className="hov-row" style={{ width: '100%', textAlign: 'left', padding: '11px 16px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 10, background: 'transparent', color: textPrimary, cursor: 'pointer', fontFamily: 'inherit', border: 'none', borderBottom: `1px solid ${cardBorder}`, transition: 'background 0.1s' }}>
+                          <button key={item.label} onClick={item.action} className="hov-row" style={{ width: '100%', textAlign: 'left', padding: '10px 14px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 9, background: 'transparent', color: textPrimary, cursor: 'pointer', fontFamily: 'inherit', border: 'none', borderBottom: `1px solid ${cardBorder}`, transition: 'background 0.1s' }}>
                             {item.label}
                           </button>
                         ))}
@@ -591,13 +809,14 @@ export default function Home() {
             )}
           </div>
 
-          <div style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
+          <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
             {rightPanel === 'preview' && <TemplateComponent resume={liveResume} dark={dark} />}
-            {rightPanel === 'saved' && (user ? <SavedCVsPanel cvs={savedCVs} dark={dark} onLoad={handleLoadCV} onDelete={handleDeleteCV} onSave={handleSaveCV} saving={savingCV} currentResume={resume} /> : <SignInPrompt dark={dark} textPrimary={textPrimary} textSec={textSec} onSignIn={() => router.push('/auth')} />)}
-            {rightPanel === 'tailor' && <TailorPanel resume={resume} dark={dark} onTailored={(r) => { setResume(r); setRightPanel('preview'); setStatus('Resume tailored! ✓'); setStatusType('ok'); }} />}
-            {rightPanel === 'cover' && <CoverLetterPanel coverLetter={coverLetter} resume={resume} jobDesc={jobDesc} setJobDesc={setJobDesc} companyName={companyName} setCompanyName={setCompanyName} hiringManager={hiringMgr} setHiringManager={setHiringMgr} onGenerate={generateCoverLetter} loading={coverLoading} dark={dark} />}
-            {rightPanel === 'ats' && <ATSScorePanel resume={resume} dark={dark} />}
-            {rightPanel === 'linkedin' && <LinkedInPanel resume={resume} dark={dark} />}
+            {rightPanel === 'coach' && <ResumeCoachPanel resume={usableResume} dark={dark} onFocusSection={focusCoachSection} onOpenAts={() => setRightPanel('ats')} onOpenTailor={() => setRightPanel('tailor')} />}
+            {rightPanel === 'saved' && (user ? <SavedCVsPanel cvs={savedCVs} dark={dark} onLoad={handleLoadCV} onDelete={handleDeleteCV} onSave={handleSaveCV} saving={savingCV} currentResume={resume} currentForm={form} /> : <SignInPrompt textPrimary={textPrimary} textSec={textSec} onSignIn={() => router.push('/auth')} />)}
+            {rightPanel === 'tailor' && <TailorPanel resume={usableResume} dark={dark} onTailored={r => { setResume(r); setRightPanel('preview'); toast('Resume tailored! ✓', 'ok'); }} />}
+            {rightPanel === 'cover' && <CoverLetterPanel coverLetter={coverLetter} resume={usableResume} jobDesc={jobDesc} setJobDesc={setJobDesc} companyName={companyName} setCompanyName={setCompanyName} hiringManager={hiringMgr} setHiringManager={setHiringMgr} onGenerate={generateCoverLetter} onUseDraft={text => { setCoverLetter(text); setRightPanel('cover'); toast('Cover letter draft applied.', 'info'); }} loading={coverLoading} dark={dark} />}
+            {rightPanel === 'ats' && <ATSScorePanel resume={usableResume} dark={dark} />}
+            {rightPanel === 'linkedin' && <LinkedInPanel resume={usableResume} dark={dark} />}
           </div>
         </div>
       </div>
@@ -617,9 +836,7 @@ export default function Home() {
                 </div>
               ))}
             </div>
-            <button onClick={handleUpgrade} style={{ width: '100%', padding: '13px 0', background: '#1D9E75', color: '#fff', border: 'none', borderRadius: 14, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 10 }}>
-              Upgrade — $9 / month
-            </button>
+            <button onClick={handleUpgrade} style={{ width: '100%', padding: '13px 0', background: '#1D9E75', color: '#fff', border: 'none', borderRadius: 14, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 10 }}>Upgrade — $9 / month</button>
             <button onClick={() => setShowUpgrade(false)} style={{ background: 'none', border: 'none', color: textMuted, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Maybe later</button>
           </div>
         </>
@@ -629,7 +846,7 @@ export default function Home() {
       {showReferral && (
         <>
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 100 }} onClick={() => setShowReferral(false)} />
-          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 101, background: cardBg, borderRadius: 24, padding: '36px 32px', width: 420, maxWidth: '90vw', textAlign: 'center', boxShadow: '0 24px 60px rgba(0,0,0,0.4)', animation: 'modalIn 0.2s ease', border: `1px solid ${cardBorder}` }}>
+          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 101, background: cardBg, borderRadius: 24, padding: '36px 32px', width: 400, maxWidth: '90vw', textAlign: 'center', boxShadow: '0 24px 60px rgba(0,0,0,0.4)', animation: 'modalIn 0.2s ease', border: `1px solid ${cardBorder}` }}>
             <div style={{ fontSize: 36, marginBottom: 12 }}>🎁</div>
             <h2 style={{ margin: '0 0 8px', fontSize: 20, fontWeight: 700, color: textPrimary }}>Refer a Friend</h2>
             <p style={{ color: textSec, fontSize: 13, marginBottom: 24, lineHeight: 1.6 }}>Share AnantaCV with a friend. When they sign up using your link, both of you get 1 month Pro free.</p>
@@ -656,7 +873,7 @@ function Spin({ sm }: { sm?: boolean }) {
   return <span style={{ display: 'inline-block', width: s, height: s, borderRadius: '50%', border: '2px solid rgba(29,158,117,0.3)', borderTopColor: '#1D9E75', animation: 'spin 0.7s linear infinite', flexShrink: 0 }} />;
 }
 
-function SignInPrompt({ dark: D, textPrimary, textSec, onSignIn }: { dark: boolean; textPrimary: string; textSec: string; onSignIn: () => void }) {
+function SignInPrompt({ textPrimary, textSec, onSignIn }: { textPrimary: string; textSec: string; onSignIn: () => void }) {
   return (
     <div style={{ textAlign: 'center', padding: '60px 20px', maxWidth: 360, margin: '0 auto' }}>
       <div style={{ fontSize: 40, marginBottom: 16 }}>💾</div>

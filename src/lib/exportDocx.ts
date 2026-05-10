@@ -3,9 +3,8 @@
 // Run: npm install docx file-saver @types/file-saver
 
 import {
-  Document, Packer, Paragraph, TextRun, HeadingLevel,
-  AlignmentType, BorderStyle, Table, TableRow, TableCell,
-  WidthType, UnderlineType,
+  Document, Packer, Paragraph, TextRun,
+  BorderStyle,
 } from 'docx';
 
 import { saveAs } from 'file-saver';

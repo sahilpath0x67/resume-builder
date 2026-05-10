@@ -62,3 +62,5 @@
 
 // // Stripe requires raw body — disable Next.js body parsing
 // export const config = { api: { bodyParser: false } };
+
+export {};

@@ -1,4 +1,13 @@
-import type { ResumeOutput } from './types';
+import type { FormData, ResumeOutput } from './types';
+
+export interface ResumeProjectBackup {
+  version: 1;
+  exportedAt: string;
+  form: FormData;
+  resume: ResumeOutput | null;
+  coverLetter: string;
+  template: string;
+}
 
 /* ─────────────────────────────────────────────
    PDF EXPORT
@@ -43,6 +52,40 @@ export function downloadHTML(resume: ResumeOutput) {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+export function downloadProjectBackup(project: ResumeProjectBackup) {
+  const blob = new Blob([JSON.stringify(project, null, 2)], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const safeName = (project.resume?.name || project.form.name || 'resume')
+    .replace(/[^\w\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '_') || 'resume';
+  a.href = url;
+  a.download = `${safeName}_AnantaCV_backup.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+export async function readProjectBackup(file: File): Promise<ResumeProjectBackup> {
+  const text = await file.text();
+  const parsed = JSON.parse(text) as Partial<ResumeProjectBackup>;
+
+  if (parsed.version !== 1 || !parsed.form) {
+    throw new Error('Invalid AnantaCV backup file.');
+  }
+
+  return {
+    version: 1,
+    exportedAt: parsed.exportedAt || new Date().toISOString(),
+    form: parsed.form,
+    resume: parsed.resume ?? null,
+    coverLetter: parsed.coverLetter ?? '',
+    template: parsed.template || 'classic',
+  };
 }
 
 function buildHTMLString(r: ResumeOutput): string {

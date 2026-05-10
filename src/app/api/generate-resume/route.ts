@@ -1,70 +1,101 @@
+// src/app/api/generate-resume/route.ts
 import { NextRequest } from 'next/server';
-// import { GoogleGenerativeAI } from '@google/generative-ai';
-import { getModel } from '@/lib/gemini';
-const getErrorMessage = (error: unknown) => error instanceof Error ? error.message : 'Unknown error';
+import { getModel, checkRateLimit, friendlyError } from '@/lib/gemini';
+
+type GeneratedSection = Record<string, unknown> & {
+  period?: string;
+  dates?: string;
+};
 
 export async function POST(request: NextRequest) {
   try {
+    // ── Rate limit: 3 per minute — most expensive call ──
+    const ip = request.headers.get('x-forwarded-for') ?? 'unknown';
+    const { allowed, retryAfter } = checkRateLimit(ip, 3);
+    if (!allowed) {
+      return Response.json(
+        { error: `Rate limit reached. Please wait ${retryAfter} seconds and try again.` },
+        { status: 429, headers: { 'Retry-After': String(retryAfter) } }
+      );
+    }
+
     const form = await request.json();
 
-    const model = getModel({ temperature: 0.7, maxOutputTokens: 1500 });
+    // ── Use smart model — most important call, needs best quality ──
+    const model = getModel({ smart: true, temperature: 0.7, maxOutputTokens: 1500 });
 
-    const systemPrompt = `You are an expert professional resume writer. 
-Your task is to create a clean, modern, ATS-friendly resume.
+    const prompt = `You are an expert resume writer. Create an ATS-friendly resume from this information.
 
-**Important rules for experience bullets:**
-- Turn responsibilities into strong achievement statements
-- Start every bullet with an action verb (Led, Developed, Increased, Built, etc.)
-- Quantify achievements whenever possible (e.g., "Increased revenue by 35%", "Managed team of 8")
-- Keep each bullet to 1 line (max 100-120 characters)
-- Make them specific and impactful
+Output ONLY valid JSON, no markdown, no extra text.
 
-Output **ONLY** valid JSON with this exact structure (no extra text, no markdown):
+User info:
+${JSON.stringify(form, null, 2)}
 
+Rules for bullets:
+- Start every bullet with an action verb (Led, Built, Increased, Delivered)
+- Quantify achievements (%, $, team size, time saved)
+- Max 120 characters per bullet
+- 3-5 bullets per role
+
+Return this exact structure:
 {
   "name": string,
-  "jobTitle": string,
-  "contact": {
-    "email": string,
-    "phone": string,
-    "location": string,
-    "linkedin": string
-  },
+  "title": string,
+  "email": string,
+  "phone": string,
+  "location": string,
+  "linkedin": string,
   "summary": string,
   "experience": [
     {
       "company": string,
       "role": string,
-      "dates": string,
-      "bullets": ["bullet 1", "bullet 2", "bullet 3", ...]
+      "period": string,
+      "bullets": ["bullet 1", "bullet 2", "bullet 3"]
     }
   ],
   "education": [
     {
       "institution": string,
       "degree": string,
-      "dates": string
+      "period": string
     }
   ],
-  "skills": string[]
+  "skills": ["skill1", "skill2"],
   "achievements": ["achievement 1", "certification 1"]
-}`;
+}
 
-    const userPrompt = `User's raw information:\n${JSON.stringify(form, null, 2)}`;
+Important: use "period" not "dates" for date ranges. use "title" not "title".`;
 
-    const result = await model.generateContent(`${systemPrompt}\n\n${userPrompt}`);
+    const result = await model.generateContent(prompt);
     const text = result.response.text();
-
-    // Extract JSON safely
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     const resumeData = JSON.parse(jsonMatch ? jsonMatch[0] : text);
 
-    return Response.json({ resume: resumeData });
+    // Normalize field names in case AI returns wrong keys
+    const r = resumeData as Record<string, unknown> & {
+      title?: string;
+      jobTitle?: string;
+      experience?: GeneratedSection[];
+      education?: GeneratedSection[];
+    };
+    const normalized = {
+      ...r,
+      title: r.title ?? r.jobTitle ?? '',
+      experience: (r.experience ?? []).map(e => ({
+        ...e,
+        period: e.period ?? e.dates ?? '',
+      })),
+      education: (r.education ?? []).map(e => ({
+        ...e,
+        period: e.period ?? e.dates ?? '',
+      })),
+    };
 
-  } catch (error: unknown) {
-    console.error("Resume generation error:", error);
-    return Response.json({ 
-      error: getErrorMessage(error) || "Failed to generate resume. Please try again." 
-    }, { status: 500 });
+    return Response.json({ resume: normalized });
+
+  } catch (e) {
+    console.error('Resume generation error:', e);
+    return Response.json({ error: friendlyError(e) }, { status: 500 });
   }
 }

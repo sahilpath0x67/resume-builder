@@ -1,6 +1,8 @@
 'use client';
 import { useState } from 'react';
 import type { ResumeOutput } from '../lib/types';
+import { getAIErrorMessage } from '../lib/aiErrors';
+import { buildLinkedInAboutDraft } from '../lib/localTemplates';
 
 export default function LinkedInPanel({
   resume,
@@ -15,7 +17,7 @@ export default function LinkedInPanel({
   const [error, setError] = useState('');
 
   const generate = async () => {
-    if (!resume) { setError('Generate your resume first.'); return; }
+    if (!resume) { setError('Fill in your resume details first.'); return; }
     setLoading(true); setError('');
     try {
       const res = await fetch('/api/linkedin-summary', {
@@ -27,15 +29,16 @@ export default function LinkedInPanel({
       if (data.error) throw new Error(data.error);
       setText(data.linkedin ?? '');
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : '';
-      if (msg.includes('429') || msg.includes('quota') || msg.includes('Too Many Requests')) {
-        setError('Rate limit reached. Please wait a minute and try again.');
-      } else {
-        setError('Failed to generate. Please try again.');
-      }
+      setError(getAIErrorMessage(e, 'Failed to generate. Please try again.'));
     } finally {
       setLoading(false);
     }
+  };
+
+  const useTemplateDraft = () => {
+    if (!resume) { setError('Fill in your resume details first.'); return; }
+    setError('');
+    setText(buildLinkedInAboutDraft(resume));
   };
 
   const copy = () => {
@@ -104,7 +107,7 @@ export default function LinkedInPanel({
               LinkedIn About Section
             </p>
             <p style={{ margin: 0, fontSize: 11, color: textMuted }}>
-              AI-written, first-person, ready to paste
+              Template draft or AI-written About
             </p>
           </div>
           {/* Resume status badge */}
@@ -114,7 +117,7 @@ export default function LinkedInPanel({
             color: resume ? '#065f46' : D ? '#fbbf24' : '#92400e',
             flexShrink: 0,
           }}>
-            {resume ? '✓ Resume ready' : '⚠ Generate resume first'}
+            {resume ? '✓ Resume ready' : '⚠ Fill resume first'}
           </div>
         </div>
 
@@ -127,7 +130,7 @@ export default function LinkedInPanel({
           marginBottom: 16,
         }}>
           <p style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 600, color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            What you'll get
+            What you&apos;ll get
           </p>
           {[
             'Written in first person, like you wrote it',
@@ -142,37 +145,58 @@ export default function LinkedInPanel({
           ))}
         </div>
 
-        {/* Generate button */}
-        <button
-          onClick={generate}
-          disabled={loading || !resume}
-          style={{
-            width: '100%',
-            padding: '11px 0',
-            borderRadius: 12,
-            border: 'none',
-            background: loading ? '#1d4ed8' : '#0A66C2',
-            color: '#fff',
-            fontSize: 13,
-            fontWeight: 500,
-            cursor: loading || !resume ? 'not-allowed' : 'pointer',
-            opacity: !resume ? 0.5 : 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 8,
-            fontFamily: 'inherit',
-            transition: 'background 0.15s',
-          }}
-        >
-          {loading ? (
-            <><Spin /> Writing your About section…</>
-          ) : text ? (
-            <>↺ Regenerate</>
-          ) : (
-            <>✦ Generate LinkedIn About</>
-          )}
-        </button>
+        {/* Generate buttons */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          <button
+            onClick={useTemplateDraft}
+            disabled={!resume}
+            style={{
+              width: '100%',
+              padding: '11px 0',
+              borderRadius: 12,
+              border: `1px solid ${borderCol}`,
+              background: 'transparent',
+              color: '#0A66C2',
+              fontSize: 13,
+              fontWeight: 500,
+              cursor: !resume ? 'not-allowed' : 'pointer',
+              opacity: !resume ? 0.5 : 1,
+              fontFamily: 'inherit',
+            }}
+          >
+            Use template draft
+          </button>
+          <button
+            onClick={generate}
+            disabled={loading || !resume}
+            style={{
+              width: '100%',
+              padding: '11px 0',
+              borderRadius: 12,
+              border: 'none',
+              background: loading ? '#1d4ed8' : '#0A66C2',
+              color: '#fff',
+              fontSize: 13,
+              fontWeight: 500,
+              cursor: loading || !resume ? 'not-allowed' : 'pointer',
+              opacity: !resume ? 0.5 : 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              fontFamily: 'inherit',
+              transition: 'background 0.15s',
+            }}
+          >
+            {loading ? (
+              <><Spin /> Writing…</>
+            ) : text ? (
+              <>✦ Enhance with AI</>
+            ) : (
+              <>✦ Write with AI</>
+            )}
+          </button>
+        </div>
 
         {error && (
           <p style={{ fontSize: 12, color: '#f87171', margin: '10px 0 0', textAlign: 'center' }}>
@@ -336,7 +360,7 @@ export default function LinkedInPanel({
           </p>
           <p style={{ margin: 0, fontSize: 13, color: textMuted, lineHeight: 1.6 }}>
             {!resume
-              ? 'Generate your resume first, then come back here.'
+              ? 'Fill in your resume details first, then come back here.'
               : 'Click Generate above to create your About section.'}
           </p>
         </div>
