@@ -69,7 +69,7 @@ export default function TailorPanel({ resume, dark: D, onTailored }: Props) {
 
         {/* How it works */}
         <div style={{ background: bgSubtle, border: `1px solid ${borderSub}`, borderRadius: 10, padding: '12px 14px', marginBottom: 16 }}>
-          <p style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 600, color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>What this does</p>
+          <p style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 600, color: textMuted, textTransform: 'uppercase', letterSpacing: 0 }}>What this does</p>
           {[
             'Rewrites your summary to directly address the job',
             'Reorders bullets to highlight the most relevant experience',
@@ -100,7 +100,7 @@ export default function TailorPanel({ resume, dark: D, onTailored }: Props) {
 
         {keywords.length > 0 && (
           <div style={{ background: bgSubtle, border: `1px solid ${borderSub}`, borderRadius: 10, padding: '12px 14px', marginBottom: 12 }}>
-            <p style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 600, color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Missing keywords</p>
+            <p style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 600, color: textMuted, textTransform: 'uppercase', letterSpacing: 0 }}>Missing keywords</p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {keywords.map(keyword => (
                 <span key={keyword} style={{ fontSize: 11, padding: '3px 9px', borderRadius: 99, background: D ? '#312e81' : '#ede9fe', color: D ? '#c4b5fd' : '#6d28d9', fontWeight: 500 }}>

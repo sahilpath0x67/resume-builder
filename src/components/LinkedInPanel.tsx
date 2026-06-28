@@ -129,7 +129,7 @@ export default function LinkedInPanel({
           padding: '12px 14px',
           marginBottom: 16,
         }}>
-          <p style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 600, color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <p style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 600, color: textMuted, textTransform: 'uppercase', letterSpacing: 0 }}>
             What you&apos;ll get
           </p>
           {[
@@ -225,7 +225,7 @@ export default function LinkedInPanel({
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{
                 fontSize: 11, fontWeight: 600,
-                textTransform: 'uppercase', letterSpacing: '0.06em',
+                textTransform: 'uppercase', letterSpacing: 0,
                 color: textMuted,
               }}>
                 Your LinkedIn About

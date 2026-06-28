@@ -123,6 +123,22 @@ export async function downloadDOCX(resume: ResumeOutput, filename?: string) {
         ] : []),
 
         // ── ACHIEVEMENTS ──
+        ...(resume.languages?.length > 0 ? [
+          sectionTitle('Languages'),
+          new Paragraph({
+            children: [new TextRun({ text: resume.languages.join(', '), size: 20, font: 'Calibri', color: '374151' })],
+            spacing: { after: 120 },
+          }),
+        ] : []),
+
+        ...(resume.hobbies?.length > 0 ? [
+          sectionTitle('Hobbies'),
+          new Paragraph({
+            children: [new TextRun({ text: resume.hobbies.join(', '), size: 20, font: 'Calibri', color: '374151' })],
+            spacing: { after: 120 },
+          }),
+        ] : []),
+
         ...(resume.achievements?.length > 0 ? [
           sectionTitle('Achievements & Certifications'),
           ...resume.achievements.map(a => bullet(a)),

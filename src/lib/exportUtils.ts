@@ -20,19 +20,28 @@ export async function downloadPDF(elementId: string, filename = 'resume.pdf') {
     alert('Resume preview not found. Make sure you have generated a resume first.');
     return;
   }
+  const previousMinHeight = el.style.minHeight;
+  const previousBorderRadius = el.style.borderRadius;
+  el.style.minHeight = '297mm';
+  el.style.borderRadius = '0';
 
   // Dynamically import to avoid SSR issues
   const html2pdf = (await import('html2pdf.js')).default;
 
   const opt = {
-    margin:      [10, 12, 10, 12] as [number, number, number, number],   // [top, right, bottom, left] in mm
+    margin:      [0, 0, 0, 0] as [number, number, number, number],
     filename,
     image:       { type: 'jpeg' as const, quality: 0.98 },
     html2canvas: { scale: 2, useCORS: true, letterRendering: true, logging: false },
     jsPDF:       { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const },
   };
 
-  await html2pdf().set(opt).from(el).save();
+  try {
+    await html2pdf().set(opt).from(el).save();
+  } finally {
+    el.style.minHeight = previousMinHeight;
+    el.style.borderRadius = previousBorderRadius;
+  }
 }
 
 /* ─────────────────────────────────────────────
@@ -111,6 +120,12 @@ function buildHTMLString(r: ResumeOutput): string {
   const skills = (r.skills || []).map(s =>
     `<span class="tag">${esc(s)}</span>`).join('');
 
+  const languages = (r.languages || []).map(s =>
+    `<span class="tag neutral">${esc(s)}</span>`).join('');
+
+  const hobbies = (r.hobbies || []).map(s =>
+    `<span class="tag neutral">${esc(s)}</span>`).join('');
+
   const ach = (r.achievements || []).length > 0 ? `
     <div class="section">
       <h2>Achievements &amp; Certifications</h2>
@@ -134,9 +149,22 @@ function buildHTMLString(r: ResumeOutput): string {
     background: #fff;
   }
   .page {
-    max-width: 780px;
+    width: 210mm;
+    min-height: 297mm;
+    max-width: 100%;
     margin: 0 auto;
-    padding: 48px 56px;
+    padding: 18mm 19mm;
+    box-sizing: border-box;
+  }
+  .header-row { display: flex; align-items: flex-start; gap: 18px; }
+  .identity { flex: 1; min-width: 0; }
+  .photo {
+    width: 84px;
+    height: 84px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #1D9E75;
+    flex-shrink: 0;
   }
   /* Header */
   h1 {
@@ -175,7 +203,7 @@ function buildHTMLString(r: ResumeOutput): string {
     font-family: 'Helvetica Neue', Arial, sans-serif;
     font-size: 10px;
     font-weight: 700;
-    letter-spacing: 0.1em;
+    letter-spacing: 0;
     text-transform: uppercase;
     color: #1D9E75;
     margin-bottom: 8px;
@@ -220,23 +248,33 @@ function buildHTMLString(r: ResumeOutput): string {
     font-weight: 500;
     padding: 3px 10px;
   }
+  .tag.neutral {
+    background: #f3f4f6;
+    color: #374151;
+  }
   /* Print */
+  @page { size: A4; margin: 0; }
   @media print {
-    .page { padding: 20px 28px; }
-    body { background: white; }
+    html, body { width: 210mm; min-height: 297mm; background: white; }
+    .page { margin: 0; }
   }
 </style>
 </head>
 <body>
 <div class="page">
 
-  <h1>${esc(r.name)}</h1>
-  ${r.title ? `<div class="title-line">${esc(r.title)}</div>` : ''}
-  <div class="contacts">
-    ${r.email    ? `<span>${esc(r.email)}</span>` : ''}
-    ${r.phone    ? `<span>${esc(r.phone)}</span>` : ''}
-    ${r.location ? `<span>${esc(r.location)}</span>` : ''}
-    ${r.linkedin ? `<a href="${esc(r.linkedin)}">${esc(r.linkedin)}</a>` : ''}
+  <div class="header-row">
+    ${r.photo ? `<img class="photo" src="${esc(r.photo)}" alt="">` : ''}
+    <div class="identity">
+      <h1>${esc(r.name)}</h1>
+      ${r.title ? `<div class="title-line">${esc(r.title)}</div>` : ''}
+      <div class="contacts">
+        ${r.email    ? `<span>${esc(r.email)}</span>` : ''}
+        ${r.phone    ? `<span>${esc(r.phone)}</span>` : ''}
+        ${r.location ? `<span>${esc(r.location)}</span>` : ''}
+        ${r.linkedin ? `<a href="${esc(r.linkedin)}">${esc(r.linkedin)}</a>` : ''}
+      </div>
+    </div>
   </div>
   <div class="divider"></div>
 
@@ -262,6 +300,18 @@ function buildHTMLString(r: ResumeOutput): string {
   <div class="section">
     <h2>Skills</h2>
     <div class="tags">${skills}</div>
+  </div>` : ''}
+
+  ${languages ? `
+  <div class="section">
+    <h2>Languages</h2>
+    <div class="tags">${languages}</div>
+  </div>` : ''}
+
+  ${hobbies ? `
+  <div class="section">
+    <h2>Hobbies</h2>
+    <div class="tags">${hobbies}</div>
   </div>` : ''}
 
   ${ach}
@@ -294,6 +344,8 @@ export function copyAsText(r: ResumeOutput): string {
     '',
     'SKILLS',
     (r.skills || []).join(', '),
+    ...(r.languages?.length ? ['', 'LANGUAGES', r.languages.join(', ')] : []),
+    ...(r.hobbies?.length ? ['', 'HOBBIES', r.hobbies.join(', ')] : []),
     ...(r.achievements?.length
       ? ['', 'ACHIEVEMENTS & CERTIFICATIONS', ...r.achievements.map(a => '• ' + a)]
       : []),

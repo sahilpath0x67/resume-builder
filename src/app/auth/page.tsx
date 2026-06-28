@@ -115,10 +115,13 @@ export default function AuthPage() {
         * { box-sizing: border-box; }
       `}</style>
 
-      <div style={{ display: 'flex', minHeight: '100vh', fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif' }}>
+      <div className="auth-shell" style={{ display: 'flex', minHeight: '100vh', fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif' }}>
         {/* Close button — returns to main page */}
         <button
+          type="button"
+          className="auth-close"
           onClick={() => router.push('/')}
+          aria-label="Back to app"
           style={{
             position: 'fixed',
             top: 16,
@@ -144,7 +147,7 @@ export default function AuthPage() {
           ✕
         </button>
         {/* ── LEFT SIDEBAR ── */}
-        <aside style={{ width: 320, flexShrink: 0, background: 'linear-gradient(160deg, #0F6E56 0%, #064e3b 100%)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '2.5rem 2rem' }}>
+        <aside className="auth-sidebar" style={{ width: 320, flexShrink: 0, background: 'linear-gradient(160deg, #0F6E56 0%, #064e3b 100%)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '2.5rem 2rem' }}>
           <div>
             {/* Logo */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: '2.5rem' }}>
@@ -160,7 +163,7 @@ export default function AuthPage() {
             </p>
 
             {/* Features */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div className="auth-sidebar-features" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {FEATURES.map(f => (
                 <div key={f.text} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0 }}>{f.icon}</div>
@@ -179,7 +182,7 @@ export default function AuthPage() {
         </aside>
 
         {/* ── RIGHT — FORM ── */}
-        <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', background: '#f9fafb' }}>
+        <main className="auth-main" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', background: '#f9fafb' }}>
           <div style={{ width: '100%', maxWidth: 400, animation: 'fadeUp 0.3s ease' }}>
 
             {/* Welcome text */}
@@ -195,7 +198,7 @@ export default function AuthPage() {
             </div>
 
             {/* Card */}
-            <div style={{ background: '#fff', borderRadius: 20, border: '1px solid #f3f4f6', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', padding: '1.75rem' }}>
+            <div className="auth-card" style={{ background: '#fff', borderRadius: 20, border: '1px solid #f3f4f6', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', padding: '1.75rem' }}>
 
               {/* Tab switcher */}
               {!forgotMode && (
@@ -210,7 +213,7 @@ export default function AuthPage() {
 
               {/* Error */}
               {error && (
-                <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C', borderRadius: 10, padding: '10px 14px', fontSize: 12, marginBottom: 16, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                <div role="alert" style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C', borderRadius: 10, padding: '10px 14px', fontSize: 12, marginBottom: 16, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
                   <span style={{ flexShrink: 0, marginTop: 1 }}>⚠</span>
                   {error}
                 </div>
@@ -218,7 +221,7 @@ export default function AuthPage() {
 
               {/* Success */}
               {success && (
-                <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', color: '#166534', borderRadius: 10, padding: '10px 14px', fontSize: 12, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div role="status" style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', color: '#166534', borderRadius: 10, padding: '10px 14px', fontSize: 12, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span>✓</span> {success}
                 </div>
               )}
@@ -228,20 +231,20 @@ export default function AuthPage() {
 
                 {tab === 'signup' && !forgotMode && (
                   <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: '#6b7280', marginBottom: 6 }}>Full name</label>
-                    <input type="text" placeholder="Jane Smith" value={name} onChange={e => setName(e.target.value)} disabled={isLoading} style={inp} />
+                    <label htmlFor="auth-name" style={{ display: 'block', fontSize: 12, fontWeight: 500, color: '#6b7280', marginBottom: 6 }}>Full name</label>
+                    <input id="auth-name" type="text" placeholder="Jane Smith" value={name} onChange={e => setName(e.target.value)} disabled={isLoading} autoComplete="name" style={inp} />
                   </div>
                 )}
 
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: '#6b7280', marginBottom: 6 }}>Email address</label>
-                  <input type="email" placeholder="you@email.com" value={email} onChange={e => setEmail(e.target.value)} disabled={isLoading} required style={inp} />
+                  <label htmlFor="auth-email" style={{ display: 'block', fontSize: 12, fontWeight: 500, color: '#6b7280', marginBottom: 6 }}>Email address</label>
+                  <input id="auth-email" type="email" placeholder="you@email.com" value={email} onChange={e => setEmail(e.target.value)} disabled={isLoading} required autoComplete="email" style={inp} />
                 </div>
 
                 {!forgotMode && (
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                      <label style={{ fontSize: 12, fontWeight: 500, color: '#6b7280' }}>Password</label>
+                      <label htmlFor="auth-password" style={{ fontSize: 12, fontWeight: 500, color: '#6b7280' }}>Password</label>
                       {tab === 'signin' && (
                         <button type="button" onClick={() => { setForgotMode(true); setError(''); setSuccess(''); }} style={{ fontSize: 11, color: '#1D9E75', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>
                           Forgot password?

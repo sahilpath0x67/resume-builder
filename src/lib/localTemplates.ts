@@ -1,15 +1,17 @@
 import type { Experience, FormData, ResumeOutput } from './types';
 
-export type SummaryTemplateId = 'impact' | 'technical' | 'leadership' | 'career-change';
-export type BulletTemplateId = 'impact' | 'leadership' | 'process' | 'customer';
-export type SkillPresetId = 'software' | 'product' | 'marketing' | 'operations';
-export type AchievementTemplateId = 'certification' | 'launch' | 'award' | 'improvement';
+export type SummaryTemplateId = 'impact' | 'technical' | 'leadership' | 'career-change' | 'graduate' | 'project';
+export type BulletTemplateId = 'impact' | 'leadership' | 'process' | 'customer' | 'technical' | 'metric';
+export type SkillPresetId = 'software' | 'product' | 'marketing' | 'operations' | 'data' | 'design' | 'sales';
+export type AchievementTemplateId = 'certification' | 'launch' | 'award' | 'improvement' | 'portfolio' | 'training';
 
 export const SUMMARY_TEMPLATES: { id: SummaryTemplateId; label: string }[] = [
   { id: 'impact', label: 'Impact' },
   { id: 'technical', label: 'Technical' },
   { id: 'leadership', label: 'Leadership' },
   { id: 'career-change', label: 'Career shift' },
+  { id: 'graduate', label: 'Graduate' },
+  { id: 'project', label: 'Project led' },
 ];
 
 export const BULLET_TEMPLATES: { id: BulletTemplateId; label: string }[] = [
@@ -17,6 +19,8 @@ export const BULLET_TEMPLATES: { id: BulletTemplateId; label: string }[] = [
   { id: 'leadership', label: 'Leadership' },
   { id: 'process', label: 'Process' },
   { id: 'customer', label: 'Customer' },
+  { id: 'technical', label: 'Technical' },
+  { id: 'metric', label: 'Metric' },
 ];
 
 export const SKILL_PRESETS: { id: SkillPresetId; label: string; skills: string[] }[] = [
@@ -24,13 +28,18 @@ export const SKILL_PRESETS: { id: SkillPresetId; label: string; skills: string[]
   { id: 'product', label: 'Product', skills: ['Roadmapping', 'User research', 'Analytics', 'Prioritization', 'Stakeholder management', 'A/B testing', 'Agile', 'Go-to-market'] },
   { id: 'marketing', label: 'Marketing', skills: ['Campaign strategy', 'SEO', 'Content marketing', 'Email marketing', 'Analytics', 'Brand positioning', 'Copywriting', 'Lead generation'] },
   { id: 'operations', label: 'Operations', skills: ['Process improvement', 'Vendor management', 'Reporting', 'Budgeting', 'Cross-functional coordination', 'Quality control', 'Scheduling', 'Documentation'] },
+  { id: 'data', label: 'Data', skills: ['SQL', 'Python', 'Dashboards', 'Data cleaning', 'Reporting', 'A/B testing', 'Forecasting', 'Stakeholder insights'] },
+  { id: 'design', label: 'Design', skills: ['Figma', 'Wireframing', 'Prototyping', 'Design systems', 'User research', 'Accessibility', 'Interaction design', 'Usability testing'] },
+  { id: 'sales', label: 'Sales', skills: ['Prospecting', 'CRM', 'Pipeline management', 'Negotiation', 'Account management', 'Discovery calls', 'Forecasting', 'Customer success'] },
 ];
 
 export const ACHIEVEMENT_TEMPLATES: { id: AchievementTemplateId; label: string; text: string }[] = [
-  { id: 'certification', label: 'Certification', text: 'Earned [certification] to strengthen expertise in [skill/domain].' },
-  { id: 'launch', label: 'Launch', text: 'Launched [project/product/process] that supported [team/customer/business outcome].' },
-  { id: 'award', label: 'Award', text: 'Recognized for [achievement] based on [impact, quality, or leadership].' },
-  { id: 'improvement', label: 'Improvement', text: 'Improved [metric/process] by [number] through [action taken].' },
+  { id: 'certification', label: 'Certification', text: 'Earned a relevant certification to strengthen professional knowledge and practical delivery.' },
+  { id: 'launch', label: 'Launch', text: 'Launched a project or process improvement that supported team goals and better execution.' },
+  { id: 'award', label: 'Award', text: 'Recognized for dependable work quality, ownership, and positive contribution to team outcomes.' },
+  { id: 'improvement', label: 'Improvement', text: 'Improved a workflow by identifying gaps, simplifying steps, and supporting more consistent results.' },
+  { id: 'portfolio', label: 'Portfolio', text: 'Built a portfolio project to demonstrate practical skills and solve a real user or business problem.' },
+  { id: 'training', label: 'Training', text: 'Completed relevant training and applied the learning to stronger, more organized project work.' },
 ];
 
 const fallback = (value: string | undefined, text: string) => value?.trim() || text;
@@ -55,18 +64,26 @@ export function buildSummaryTemplate(form: FormData, templateId: SummaryTemplate
   const locationText = location ? ` based in ${location}` : '';
 
   if (templateId === 'technical') {
-    return `${title}${locationText} with hands-on experience in ${skills}. Known for translating requirements into reliable solutions, improving workflows, and collaborating with teams to deliver practical results.`;
+    return `${title}${locationText} with practical experience in ${skills}. Strong at turning requirements into reliable solutions, documenting trade-offs clearly, and improving workflows so teams can deliver with fewer blockers.`;
   }
 
   if (templateId === 'leadership') {
-    return `${title}${locationText} with experience guiding teams, coordinating stakeholders, and moving work from planning to delivery. Brings strengths in ${skills}, with a focus on clear execution and measurable outcomes.`;
+    return `${title}${locationText} experienced in guiding priorities, coordinating stakeholders, and moving work from planning to delivery. Brings strengths in ${skills}, clear communication, and steady execution across team goals.`;
   }
 
   if (templateId === 'career-change') {
-    return `Adaptable ${title}${locationText} bringing experience as ${roleContext}${companyContext} and strengths in ${skills}. Combines fast learning, structured problem solving, and cross-functional communication to contribute quickly in new environments.`;
+    return `Adaptable ${title}${locationText} bringing experience as ${roleContext}${companyContext} and strengths in ${skills}. Combines fast learning, structured problem solving, and clear communication to contribute quickly in a new environment.`;
   }
 
-  return `Results-focused ${title}${locationText} with experience as ${roleContext}${companyContext}. Skilled in ${skills}, with a track record of improving processes, supporting teams, and delivering work that creates measurable business value.`;
+  if (templateId === 'graduate') {
+    return `Motivated ${title}${locationText} with a foundation in ${skills} and a strong interest in building useful, well-organized work. Brings curiosity, attention to detail, and a practical approach to learning quickly in professional settings.`;
+  }
+
+  if (templateId === 'project') {
+    return `${title}${locationText} with experience contributing to projects from planning through delivery${companyContext}. Skilled in ${skills}, with a focus on organizing work, solving problems, and communicating progress clearly.`;
+  }
+
+  return `Results-focused ${title}${locationText} with experience as ${roleContext}${companyContext}. Skilled in ${skills}, improving processes, supporting teams, and delivering work that connects day-to-day execution with measurable outcomes.`;
 }
 
 export function buildBulletTemplate(exp: Experience, templateId: BulletTemplateId): string {
@@ -74,18 +91,26 @@ export function buildBulletTemplate(exp: Experience, templateId: BulletTemplateI
   const area = exp.company ? `at ${exp.company}` : 'for the team';
 
   if (templateId === 'leadership') {
-    return `Led [team/project] ${area} to deliver [outcome] ahead of schedule.`;
+    return `Led day-to-day coordination ${area}, helping the team deliver priorities on time.`;
   }
 
   if (templateId === 'process') {
-    return `Improved [process/workflow] in ${role} by reducing [time/cost/errors] by [number].`;
+    return `Improved ${role} workflows by organizing tasks, reducing delays, and making handoffs clearer.`;
   }
 
   if (templateId === 'customer') {
-    return `Supported [customers/stakeholders] by resolving [problem] and improving satisfaction by [number].`;
+    return `Supported customers and stakeholders by resolving issues quickly and communicating next steps clearly.`;
   }
 
-  return `Delivered [project/result] ${area}, increasing [metric] by [number] through [action].`;
+  if (templateId === 'technical') {
+    return `Built or improved tools and workflows ${area}, reducing manual work and improving reliability.`;
+  }
+
+  if (templateId === 'metric') {
+    return `Improved performance by tracking results, acting on feedback, and refining the process over time.`;
+  }
+
+  return `Delivered useful results ${area} by taking ownership, solving blockers, and following through.`;
 }
 
 export function mergeSkills(existingSkills: string, preset: SkillPresetId): string {

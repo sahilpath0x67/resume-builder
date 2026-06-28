@@ -30,6 +30,7 @@ import ExecutiveTemplate from '../components/templates/ExecutiveTemplate';
 import CreativeTemplate from '../components/templates/CreativeTemplate';
 import CompactTemplate from '../components/templates/CompactTemplate';
 import BoldTemplate from '../components/templates/BoldTemplate';
+import PhotoSidebarTemplate from '../components/templates/PhotoSidebarTemplate';
 import CoverLetterPanel from '../components/CoverLetterPanel';
 import ATSScorePanel from '../components/ATSScorePanel';
 import LinkedInPanel from '../components/LinkedInPanel';
@@ -43,23 +44,84 @@ interface Toast { id: number; msg: string; type: 'ok' | 'err' | 'info'; }
 let toastId = 0;
 
 // ── helpers ──────────────────────────────────────────────────────────────────
+function splitList(value: string | undefined): string[] {
+  return value ? value.split(/[\n,]/).map(item => item.trim()).filter(Boolean) : [];
+}
+
+const BRACKET_PLACEHOLDER = /\[[^\]]+\]/g;
+const HAS_BRACKET_PLACEHOLDER = /\[[^\]]+\]/;
+
+function cleanPlaceholderText(value: string | undefined): string {
+  return (value || '')
+    .replace(BRACKET_PLACEHOLDER, '')
+    .replace(/\s+([,.;:])/g, '$1')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+function cleanPreviewList(items: string[] | undefined): string[] {
+  return (items || []).map(cleanPlaceholderText).filter(Boolean);
+}
+
+function cleanAchievementForPreview(value: string): string {
+  if (!HAS_BRACKET_PLACEHOLDER.test(value)) return value.trim();
+
+  const lower = value.toLowerCase();
+  if (lower.startsWith('earned')) {
+    return 'Earned relevant training or certification to strengthen professional knowledge and delivery.';
+  }
+  if (lower.startsWith('launched')) {
+    return 'Launched a project or process improvement that supported team goals and better execution.';
+  }
+  if (lower.startsWith('recognized')) {
+    return 'Recognized for dependable work quality, ownership, and positive contribution to team outcomes.';
+  }
+  if (lower.startsWith('improved')) {
+    return 'Improved a workflow by identifying gaps, simplifying steps, and supporting more consistent results.';
+  }
+  if (lower.startsWith('built')) {
+    return 'Built a portfolio project to demonstrate practical skills and solve a real user or business problem.';
+  }
+  if (lower.startsWith('completed')) {
+    return 'Completed relevant training and applied the learning to stronger, more organized project work.';
+  }
+
+  return cleanPlaceholderText(value);
+}
+
+function cleanBulletForPreview(value: string, exp?: Partial<Experience>): string {
+  if (!HAS_BRACKET_PLACEHOLDER.test(value)) return value.trim();
+
+  const role = exp?.role?.trim() || 'the role';
+  const company = exp?.company?.trim();
+  const area = company ? ` at ${company}` : '';
+
+  if (/^led\b/i.test(value)) return `Led project coordination${area}, helping the team deliver priorities on schedule.`;
+  if (/^built\b|^developed\b|^created\b/i.test(value)) return `Built or improved practical workflows${area}, reducing manual work and improving reliability.`;
+  if (/^increased\b|^improved\b/i.test(value)) return `Improved ${role} results${area} by tracking progress, solving blockers, and refining the process.`;
+  return `Delivered useful results${area} by taking ownership, solving blockers, and following through.`;
+}
+
 function formToResume(form: FormData): ResumeOutput {
   return {
     name: form.name, title: form.title, email: form.email,
     phone: form.phone, location: form.location, linkedin: form.linkedin,
+    photo: form.photo,
     summary: form.summary,
     experience: form.experience.filter(e => e.company || e.role).map(e => ({
       company: e.company, role: e.role,
       period: `${e.start}${e.end ? ` – ${e.end}` : ''}`,
-      bullets: e.desc ? e.desc.split('\n').filter(Boolean) : [],
+      bullets: e.desc ? e.desc.split('\n').map(b => cleanBulletForPreview(b, e)).filter(Boolean) : [],
     })),
     education: form.education.filter(e => e.institution || e.degree).map(e => ({
       institution: e.institution, degree: e.degree,
       period: `${e.start}${e.end ? ` – ${e.end}` : ''}`,
     })),
-    skills: form.skills ? form.skills.split(',').map(s => s.trim()).filter(Boolean) : [],
+    skills: splitList(form.skills),
+    languages: splitList(form.languages),
+    hobbies: splitList(form.hobbies),
     achievements: form.achievements
-      ? form.achievements.split(/[\n,]/).map(s => s.trim()).filter(Boolean)
+      ? form.achievements.split(/[\n,]/).map(cleanAchievementForPreview).filter(Boolean)
       : [],
   };
 }
@@ -90,14 +152,15 @@ function computeQuickScore(r: ResumeOutput): number {
 }
 
 function resumeWordCount(r: ResumeOutput): number {
-  const all = [r.summary, ...(r.experience?.flatMap(e => e.bullets) ?? []), ...(r.achievements ?? []), r.skills?.join(' ') ?? ''].join(' ');
+  const all = [r.summary, ...(r.experience?.flatMap(e => e.bullets) ?? []), ...(r.achievements ?? []), r.skills?.join(' ') ?? '', r.languages?.join(' ') ?? '', r.hobbies?.join(' ') ?? ''].join(' ');
   return all.trim() ? all.trim().split(/\s+/).length : 0;
 }
 
 function resumeLengthLabel(words: number): { label: string; color: string } {
-  if (words < 150) return { label: 'Too short', color: '#f87171' };
-  if (words < 400) return { label: 'Ideal', color: '#4ade80' };
-  if (words < 600) return { label: 'A bit long', color: '#fbbf24' };
+  if (words < 180) return { label: 'Sparse A4', color: '#f87171' };
+  if (words < 300) return { label: 'Light A4', color: '#fbbf24' };
+  if (words <= 620) return { label: 'A4 fit', color: '#4ade80' };
+  if (words <= 780) return { label: 'Dense A4', color: '#fbbf24' };
   return { label: 'Too long', color: '#f87171' };
 }
 
@@ -106,7 +169,10 @@ function hasResumeContent(resume: ResumeOutput): boolean {
     resume.name ||
     resume.title ||
     resume.summary ||
-    resume.skills.length ||
+    Boolean(resume.photo) ||
+    Boolean(resume.skills?.length) ||
+    Boolean(resume.languages?.length) ||
+    Boolean(resume.hobbies?.length) ||
     resume.experience.some(exp => exp.company || exp.role || exp.bullets.length) ||
     resume.education.some(edu => edu.institution || edu.degree)
   );
@@ -114,10 +180,63 @@ function hasResumeContent(resume: ResumeOutput): boolean {
 
 const EMPTY_EXP = (): Experience => ({ company: '', role: '', start: '', end: '', desc: '' });
 const EMPTY_EDU = (): Education => ({ institution: '', degree: '', start: '', end: '' });
-const EMPTY_FORM = (): FormData => ({ name: '', title: '', email: '', phone: '', location: '', linkedin: '', summary: '', skills: '', achievements: '', experience: [EMPTY_EXP()], education: [EMPTY_EDU()] });
+const EMPTY_FORM = (): FormData => ({
+  name: '',
+  title: '',
+  email: '',
+  phone: '',
+  location: '',
+  linkedin: '',
+  photo: '',
+  summary: '',
+  skills: '',
+  languages: '',
+  hobbies: '',
+  achievements: '',
+  experience: [EMPTY_EXP()],
+  education: [EMPTY_EDU()],
+});
 
-type TemplateId = 'classic' | 'modern' | 'minimal' | 'executive' | 'creative' | 'compact' | 'bold';
+function normalizeForm(value?: Partial<FormData> | null): FormData {
+  const base = EMPTY_FORM();
+  if (!value) return base;
+
+  return {
+    ...base,
+    ...value,
+    experience: value.experience?.length ? value.experience : [EMPTY_EXP()],
+    education: value.education?.length ? value.education : [EMPTY_EDU()],
+  };
+}
+
+function normalizeResume(value?: Partial<ResumeOutput> | null, fallbackForm?: FormData): ResumeOutput | null {
+  if (!value) return null;
+  const fallbackResume = fallbackForm ? formToResume(fallbackForm) : null;
+
+  return {
+    name: value.name ?? fallbackResume?.name ?? '',
+    title: value.title ?? fallbackResume?.title ?? '',
+    email: value.email ?? fallbackResume?.email ?? '',
+    phone: value.phone ?? fallbackResume?.phone ?? '',
+    location: value.location ?? fallbackResume?.location ?? '',
+    linkedin: value.linkedin ?? fallbackResume?.linkedin ?? '',
+    photo: value.photo ?? fallbackResume?.photo ?? '',
+    summary: value.summary ?? fallbackResume?.summary ?? '',
+    experience: (value.experience ?? fallbackResume?.experience ?? []).map(exp => ({
+      ...exp,
+      bullets: cleanPreviewList(exp.bullets),
+    })),
+    education: value.education ?? fallbackResume?.education ?? [],
+    skills: cleanPreviewList(value.skills ?? fallbackResume?.skills ?? []),
+    languages: cleanPreviewList(value.languages ?? fallbackResume?.languages ?? []),
+    hobbies: cleanPreviewList(value.hobbies ?? fallbackResume?.hobbies ?? []),
+    achievements: (value.achievements ?? fallbackResume?.achievements ?? []).map(cleanAchievementForPreview).filter(Boolean),
+  };
+}
+
+type TemplateId = 'classic' | 'modern' | 'minimal' | 'executive' | 'creative' | 'compact' | 'bold' | 'photo-sidebar';
 const TEMPLATES: { id: TemplateId; label: string; desc: string; color: string }[] = [
+  { id: 'photo-sidebar', label: 'Photo Sidebar', desc: 'A4 profile sidebar', color: '#1f2937' },
   { id: 'classic', label: 'Classic', desc: 'Traditional serif', color: '#1D9E75' },
   { id: 'modern', label: 'Modern', desc: 'Two-column sidebar', color: '#0F6E56' },
   { id: 'minimal', label: 'Minimal', desc: 'Clean centred', color: '#6b7280' },
@@ -126,7 +245,7 @@ const TEMPLATES: { id: TemplateId; label: string; desc: string; color: string }[
   { id: 'compact', label: 'Compact', desc: 'Two-column green', color: '#059669' },
   { id: 'bold', label: 'Bold', desc: 'Dark header red accent', color: '#e11d48' },
 ];
-const TEMPLATE_MAP = { classic: ClassicTemplate, modern: ModernTemplate, minimal: MinimalTemplate, executive: ExecutiveTemplate, creative: CreativeTemplate, compact: CompactTemplate, bold: BoldTemplate };
+const TEMPLATE_MAP = { classic: ClassicTemplate, modern: ModernTemplate, minimal: MinimalTemplate, executive: ExecutiveTemplate, creative: CreativeTemplate, compact: CompactTemplate, bold: BoldTemplate, 'photo-sidebar': PhotoSidebarTemplate };
 
 const LEFT_TABS = ['Basics', 'Experience', 'Education', 'Skills'] as const;
 const RIGHT_PANELS = [
@@ -161,6 +280,7 @@ export default function Home() {
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastAutoSave = useRef<number>(0);
   const backupInputRef = useRef<HTMLInputElement | null>(null);
+  const photoInputRef = useRef<HTMLInputElement | null>(null);
 
   const router = useRouter();
   const { user, profile, refreshProfile } = useAuth();
@@ -168,12 +288,12 @@ export default function Home() {
 
   const [form, setForm] = useState<FormData>(() => {
     if (typeof window === 'undefined') return EMPTY_FORM();
-    try { const s = localStorage.getItem('resume-form'); return s ? JSON.parse(s) : EMPTY_FORM(); }
+    try { const s = localStorage.getItem('resume-form'); return s ? normalizeForm(JSON.parse(s)) : EMPTY_FORM(); }
     catch { return EMPTY_FORM(); }
   });
   const [resume, setResume] = useState<ResumeOutput | null>(() => {
     if (typeof window === 'undefined') return null;
-    try { const s = localStorage.getItem('resume-output'); return s ? JSON.parse(s) : null; }
+    try { const s = localStorage.getItem('resume-output'); return s ? normalizeResume(JSON.parse(s), form) : null; }
     catch { return null; }
   });
 
@@ -228,6 +348,26 @@ export default function Home() {
 
   const markFormEdited = () => setResume(null);
   const setF = (k: keyof FormData, v: string) => { markFormEdited(); setForm(f => ({ ...f, [k]: v })); };
+  const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast('Please choose an image file.', 'err');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : '';
+      if (!result) return;
+      setF('photo', result);
+      setTemplate('photo-sidebar');
+      toast('Photo added to the sidebar template.', 'ok');
+    };
+    reader.onerror = () => toast('Could not read that image.', 'err');
+    reader.readAsDataURL(file);
+  };
   const upExp = (i: number, k: keyof Experience, v: string) => { markFormEdited(); setForm(f => { const e = [...f.experience]; e[i] = { ...e[i], [k]: v }; return { ...f, experience: e }; }); };
   const upEdu = (i: number, k: keyof Education, v: string) => { markFormEdited(); setForm(f => { const e = [...f.education]; e[i] = { ...e[i], [k]: v }; return { ...f, education: e }; }); };
   const addExp = () => { markFormEdited(); setForm(f => ({ ...f, experience: [...f.experience, EMPTY_EXP()] })); };
@@ -283,7 +423,7 @@ export default function Home() {
       const res = await fetch('/api/generate-resume', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      setResume(data.resume); setRightPanel('preview');
+      setResume(normalizeResume(data.resume, form)); setRightPanel('preview');
       toast('Resume generated! ✓', 'ok');
     } catch (e: unknown) {
       toast(getAIErrorMessage(e, 'Failed to generate. Please try again.'), 'err', 5000);
@@ -330,8 +470,9 @@ export default function Home() {
 
     try {
       const backup = await readProjectBackup(file);
-      setForm(backup.form);
-      setResume(backup.resume);
+      const nextForm = normalizeForm(backup.form);
+      setForm(nextForm);
+      setResume(normalizeResume(backup.resume, nextForm));
       setCoverLetter(backup.coverLetter);
       if (TEMPLATES.some(item => item.id === backup.template)) {
         setTemplate(backup.template as TemplateId);
@@ -381,10 +522,11 @@ export default function Home() {
 
   // ── Load CV back into form ────────────────────────────────────────────────
   const handleLoadCV = (cv: SavedCV) => {
-    setResume(cv.resume);
+    const nextForm = cv.formData ? normalizeForm(cv.formData) : null;
+    setResume(normalizeResume(cv.resume, nextForm ?? undefined));
     // Restore form data if saved — this is the key feature
     if (cv.formData) {
-      setForm(cv.formData);
+      if (nextForm) setForm(nextForm);
       toast(`Loaded "${cv.name}" — form and preview restored.`, 'ok');
     } else {
       toast(`Loaded "${cv.name}" — preview restored.`, 'ok');
@@ -402,11 +544,13 @@ export default function Home() {
   const usableResume = hasResumeContent(liveResume) ? liveResume : null;
   const coachInsights = analyzeResume(usableResume);
   const TemplateComponent = TEMPLATE_MAP[template];
+  const showPhotoControls = template === 'photo-sidebar';
   const savedCVs = profile?.cvs ?? [];
   const words = resumeWordCount(liveResume);
   const lengthInfo = resumeLengthLabel(words);
   const quickScore = computeQuickScore(liveResume);
   const scoreColor = quickScore >= 80 ? '#4ade80' : quickScore >= 60 ? '#fbbf24' : '#f87171';
+  const a4FitColor = coachInsights.a4Fit.status === 'balanced' ? '#4ade80' : coachInsights.a4Fit.status === 'dense' ? '#fbbf24' : '#f87171';
 
   const focusCoachSection = (section: InsightSection) => {
     if (section === 'ats') {
@@ -448,7 +592,7 @@ export default function Home() {
   if (!mounted) return null;
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: bg, color: textPrimary, fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif' }}>
+    <div className="app-shell" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: bg, color: textPrimary, fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif' }}>
       <style>{`
         @keyframes spin      { to { transform: rotate(360deg); } }
         @keyframes fadeIn    { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
@@ -464,6 +608,7 @@ export default function Home() {
         .hov-teal:hover { background: rgba(29,158,117,0.1) !important; }
         .hov-row:hover  { background: ${D ? 'rgba(55,65,81,0.5)' : '#f9fafb'} !important; }
         .hov-tab:hover  { opacity: 0.8; }
+        .print-preview-sheet #resume-output { min-height: 297mm !important; border-radius: 0 !important; }
         @media print { .no-print { display: none !important; } body { background: white !important; } }
         @media (max-width: 768px) {
           .left-panel { width: 100% !important; min-width: unset !important; border-right: none !important; border-bottom: 1px solid ${cardBorder}; max-height: 50vh; }
@@ -473,12 +618,12 @@ export default function Home() {
           .word-pill { display: none !important; }
         }
       `}</style>
-      <input ref={backupInputRef} type="file" accept="application/json,.json" onChange={importBackup} style={{ display: 'none' }} />
+      <input ref={backupInputRef} type="file" accept="application/json,.json" aria-label="Import project backup" onChange={importBackup} style={{ display: 'none' }} />
 
       {/* ── TOAST CONTAINER ── */}
-      <div style={{ position: 'fixed', top: 16, right: 16, zIndex: 9999, display: 'flex', flexDirection: 'column', gap: 8, pointerEvents: 'none' }}>
+      <div aria-live="polite" aria-atomic="true" style={{ position: 'fixed', top: 16, right: 16, zIndex: 9999, display: 'flex', flexDirection: 'column', gap: 8, pointerEvents: 'none' }}>
         {toasts.map(t => (
-          <div key={t.id} style={{
+          <div key={t.id} role={t.type === 'err' ? 'alert' : 'status'} style={{
             padding: '10px 16px', borderRadius: 12, fontSize: 13, fontWeight: 500,
             background: t.type === 'err' ? '#ef4444' : t.type === 'info' ? (D ? '#374151' : '#1f2937') : '#1D9E75',
             color: '#fff', boxShadow: '0 4px 20px rgba(0,0,0,0.25)',
@@ -501,17 +646,17 @@ export default function Home() {
               <button onClick={() => setShowPrintView(false)} style={{ padding: '8px 16px', background: 'transparent', color: '#6b7280', border: '1px solid #e5e7eb', borderRadius: 10, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>✕ Close</button>
             </div>
           </div>
-          <div style={{ padding: '0 24px 40px' }}>
+          <div className="print-preview-sheet" style={{ padding: '0 24px 40px' }}>
             <TemplateComponent resume={liveResume} dark={false} />
           </div>
         </div>
       )}
 
       {/* ── HEADER ── */}
-      <header className="no-print" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderBottom: `1px solid ${cardBorder}`, background: cardBg, flexShrink: 0, zIndex: 10, flexWrap: 'wrap' }}>
+      <header className="app-header no-print" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderBottom: `1px solid ${cardBorder}`, background: cardBg, flexShrink: 0, zIndex: 10, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{ width: 30, height: 30, borderRadius: 9, background: 'linear-gradient(135deg,#0F6E56,#1D9E75)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 13, flexShrink: 0 }}>A</div>
-          <span style={{ fontWeight: 700, fontSize: 14, color: textPrimary, letterSpacing: '-0.01em' }}>Ananta<span style={{ color: '#1D9E75' }}>CV</span></span>
+          <span style={{ fontWeight: 700, fontSize: 14, color: textPrimary, letterSpacing: 0 }}>Ananta<span style={{ color: '#1D9E75' }}>CV</span></span>
         </div>
 
         {/* Progress pills — hidden on mobile */}
@@ -523,16 +668,16 @@ export default function Home() {
           ))}
         </div>
 
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+        <div className="header-actions" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
           {/* Word count + ATS score — hidden on mobile */}
           <div className="word-pill" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span suppressHydrationWarning style={{ fontSize: 10, padding: '2px 8px', borderRadius: 99, fontWeight: 500, background: subtleBg, color: textMuted, border: `1px solid ${cardBorder}` }}>
               {words}w · <span style={{ color: lengthInfo.color, fontWeight: 600 }}>{lengthInfo.label}</span>
             </span>
             {/* ATS score badge on preview tab */}
-            <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 99, background: subtleBg, color: scoreColor, border: `1px solid ${cardBorder}`, fontWeight: 600, cursor: 'pointer' }} onClick={() => setRightPanel('ats')} title="Click to view full ATS analysis">
+            <button type="button" style={{ fontSize: 11, padding: '3px 8px', borderRadius: 99, background: subtleBg, color: scoreColor, border: `1px solid ${cardBorder}`, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }} onClick={() => setRightPanel('ats')} title="Click to view full ATS analysis" aria-label={`Open ATS analysis, current quick score ${quickScore}`}>
               ⚡ {quickScore}
-            </span>
+            </button>
           </div>
 
           {/* Auto-save indicator */}
@@ -542,7 +687,7 @@ export default function Home() {
 
           {isPro && <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 99, background: 'rgba(29,158,117,0.15)', color: '#1D9E75', border: '1px solid rgba(29,158,117,0.3)' }}>✦ Pro</span>}
 
-          <button onClick={() => setDark(d => !d)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 9, fontSize: 12, fontWeight: 500, border: `1px solid ${cardBorder}`, background: subtleBg, color: textSec, cursor: 'pointer', fontFamily: 'inherit' }}>
+          <button type="button" onClick={() => setDark(d => !d)} aria-label={D ? 'Switch to light mode' : 'Switch to dark mode'} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 9, fontSize: 12, fontWeight: 500, border: `1px solid ${cardBorder}`, background: subtleBg, color: textSec, cursor: 'pointer', fontFamily: 'inherit' }}>
             {D ? '☀' : '🌙'}
           </button>
 
@@ -552,7 +697,7 @@ export default function Home() {
 
           {user ? (
             <div style={{ position: 'relative' }}>
-              <button onClick={() => setShowUserMenu(m => !m)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 9, border: `1px solid ${cardBorder}`, background: subtleBg, color: textSec, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}>
+              <button type="button" onClick={() => setShowUserMenu(m => !m)} aria-haspopup="menu" aria-expanded={showUserMenu} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 9, border: `1px solid ${cardBorder}`, background: subtleBg, color: textSec, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}>
                 <div style={{ width: 20, height: 20, borderRadius: '50%', background: '#1D9E75', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 10, fontWeight: 700 }}>
                   {(user.displayName ?? user.email ?? '?')[0].toUpperCase()}
                 </div>
@@ -561,7 +706,7 @@ export default function Home() {
               {showUserMenu && (
                 <>
                   <div style={{ position: 'fixed', inset: 0, zIndex: 10 }} onClick={() => setShowUserMenu(false)} />
-                  <div style={{ position: 'absolute', right: 0, top: '100%', marginTop: 6, zIndex: 20, background: cardBg, border: `1px solid ${cardBorder}`, borderRadius: 14, boxShadow: '0 10px 30px rgba(0,0,0,0.2)', overflow: 'hidden', minWidth: 200 }}>
+                  <div role="menu" style={{ position: 'absolute', right: 0, top: '100%', marginTop: 6, zIndex: 20, background: cardBg, border: `1px solid ${cardBorder}`, borderRadius: 14, boxShadow: '0 10px 30px rgba(0,0,0,0.2)', overflow: 'hidden', minWidth: 200 }}>
                     <div style={{ padding: '12px 16px', borderBottom: `1px solid ${cardBorder}` }}>
                       <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: textPrimary }}>{user.displayName ?? 'User'}</p>
                       <p style={{ margin: 0, fontSize: 11, color: textSec }}>{user.email}</p>
@@ -586,33 +731,52 @@ export default function Home() {
 
         {/* ══ LEFT PANEL ══ */}
         <div className="left-panel" style={{ width: 360, minWidth: 300, display: 'flex', flexDirection: 'column', borderRight: `1px solid ${cardBorder}`, background: cardBg, flexShrink: 0 }}>
-          <div style={{ display: 'flex', padding: '10px 10px 8px', gap: 3, borderBottom: `1px solid ${cardBorder}`, flexShrink: 0, overflowX: 'auto' }}>
+          <div className="editor-tabs" role="tablist" aria-label="Resume editor sections" style={{ display: 'flex', padding: '10px 10px 8px', gap: 3, borderBottom: `1px solid ${cardBorder}`, flexShrink: 0, overflowX: 'auto' }}>
             {LEFT_TABS.map((t, i) => (
-              <button key={t} onClick={() => setActiveTab(i)} className="hov-tab" style={{ padding: '6px 12px', fontSize: 12, fontWeight: 500, borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s', background: activeTab === i ? '#1D9E75' : 'transparent', color: activeTab === i ? '#fff' : textSec, whiteSpace: 'nowrap' }}>
+              <button key={t} type="button" role="tab" aria-selected={activeTab === i} onClick={() => setActiveTab(i)} className="hov-tab" style={{ padding: '6px 12px', fontSize: 12, fontWeight: 500, borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s', background: activeTab === i ? '#1D9E75' : 'transparent', color: activeTab === i ? '#fff' : textSec, whiteSpace: 'nowrap' }}>
                 {t}
               </button>
             ))}
           </div>
 
-          <div style={{ flex: 1, overflowY: 'auto', padding: 14 }}>
+          <div className="editor-scroll" style={{ flex: 1, overflowY: 'auto', padding: 14 }}>
             {activeTab === 0 && (
               <div style={{ animation: 'fadeIn 0.15s ease' }}>
+                <input ref={photoInputRef} type="file" accept="image/*" aria-label="Upload profile photo" onChange={handlePhotoUpload} style={{ display: 'none' }} />
+                {showPhotoControls && (
+                  <div style={{ ...secCard, display: 'flex', alignItems: 'center', gap: 14, marginBottom: 14 }}>
+                    <div style={{ width: 64, height: 64, borderRadius: '50%', background: D ? '#374151' : '#e5e7eb', border: `2px solid ${cardBorder}`, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', color: textMuted, fontSize: 22, fontWeight: 700, flexShrink: 0 }}>
+                      {form.photo ? (
+                        <img src={form.photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        form.name.trim().charAt(0).toUpperCase() || 'P'
+                      )}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ margin: '0 0 6px', fontSize: 12, fontWeight: 700, color: textPrimary }}>Profile photo</p>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        <button type="button" onClick={() => photoInputRef.current?.click()} style={chipBtn}>{form.photo ? 'Change photo' : 'Upload photo'}</button>
+                        {form.photo && <button type="button" onClick={() => setF('photo', '')} style={chipBtn}>Remove</button>}
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <label style={lbl}>Full name <span style={{ color: '#1D9E75' }}>*</span></label>
-                <input style={inp} placeholder="Jane Smith" value={form.name} onChange={e => setF('name', e.target.value)} />
+                <input style={inp} aria-label="Full name" placeholder="Jane Smith" value={form.name} onChange={e => setF('name', e.target.value)} />
                 <label style={lbl}>Job title <span style={{ color: '#1D9E75' }}>*</span></label>
-                <input style={inp} placeholder="Senior Product Manager" value={form.title} onChange={e => setF('title', e.target.value)} />
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  <div><label style={lbl}>Email</label><input style={inp} type="email" placeholder="jane@email.com" value={form.email} onChange={e => setF('email', e.target.value)} /></div>
-                  <div><label style={lbl}>Phone</label><input style={inp} placeholder="+1 555 000 0000" value={form.phone} onChange={e => setF('phone', e.target.value)} /></div>
+                <input style={inp} aria-label="Job title" placeholder="Senior Product Manager" value={form.title} onChange={e => setF('title', e.target.value)} />
+                <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <div><label style={lbl}>Email</label><input style={inp} aria-label="Email" type="email" placeholder="jane@email.com" value={form.email} onChange={e => setF('email', e.target.value)} /></div>
+                  <div><label style={lbl}>Phone</label><input style={inp} aria-label="Phone" placeholder="+1 555 000 0000" value={form.phone} onChange={e => setF('phone', e.target.value)} /></div>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  <div><label style={lbl}>Location</label><input style={inp} placeholder="New York, USA" value={form.location} onChange={e => setF('location', e.target.value)} /></div>
-                  <div><label style={lbl}>LinkedIn / Portfolio</label><input style={inp} placeholder="linkedin.com/in/jane" value={form.linkedin} onChange={e => setF('linkedin', e.target.value)} /></div>
+                <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <div><label style={lbl}>Location</label><input style={inp} aria-label="Location" placeholder="New York, USA" value={form.location} onChange={e => setF('location', e.target.value)} /></div>
+                  <div><label style={lbl}>LinkedIn / Portfolio</label><input style={inp} aria-label="LinkedIn or portfolio" placeholder="linkedin.com/in/jane" value={form.linkedin} onChange={e => setF('linkedin', e.target.value)} /></div>
                 </div>
                 <label style={{ ...lbl, marginTop: 12 }}>Summary <span style={{ color: textMuted, fontWeight: 400 }}>— optional</span></label>
                 <textarea style={{ ...inp, resize: 'vertical', lineHeight: 1.6 }} rows={3} placeholder="Paste an existing summary or leave blank…" value={form.summary} onChange={e => setF('summary', e.target.value)} />
                 <div style={{ marginTop: 8 }}>
-                  <span style={{ fontSize: 11, color: textMuted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Templates</span>
+                  <span style={{ fontSize: 11, color: textMuted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0 }}>Templates</span>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
                     {SUMMARY_TEMPLATES.map(item => (
                       <button key={item.id} type="button" onClick={() => applySummaryTemplate(item.id)} style={chipBtn}>
@@ -629,16 +793,16 @@ export default function Home() {
                 {form.experience.map((exp, i) => (
                   <div key={i} style={secCard}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                      <span style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: textMuted }}>Position {i + 1}</span>
+                      <span style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0, color: textMuted }}>Position {i + 1}</span>
                       {form.experience.length > 1 && <button onClick={() => delExp(i)} className="hov-red" style={{ fontSize: 11, color: textMuted, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>Remove</button>}
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                      <input style={inp} placeholder="Company" value={exp.company} onChange={e => upExp(i, 'company', e.target.value)} />
-                      <input style={inp} placeholder="Role / title" value={exp.role} onChange={e => upExp(i, 'role', e.target.value)} />
+                    <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                      <input style={inp} aria-label={`Company for position ${i + 1}`} placeholder="Company" value={exp.company} onChange={e => upExp(i, 'company', e.target.value)} />
+                      <input style={inp} aria-label={`Role for position ${i + 1}`} placeholder="Role / title" value={exp.role} onChange={e => upExp(i, 'role', e.target.value)} />
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
-                      <input style={inp} placeholder="Start (e.g. Jan 2021)" value={exp.start} onChange={e => upExp(i, 'start', e.target.value)} />
-                      <input style={inp} placeholder="End (or Present)" value={exp.end} onChange={e => upExp(i, 'end', e.target.value)} />
+                    <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
+                      <input style={inp} aria-label={`Start date for position ${i + 1}`} placeholder="Start (e.g. Jan 2021)" value={exp.start} onChange={e => upExp(i, 'start', e.target.value)} />
+                      <input style={inp} aria-label={`End date for position ${i + 1}`} placeholder="End (or Present)" value={exp.end} onChange={e => upExp(i, 'end', e.target.value)} />
                     </div>
                     <div style={{ marginTop: 8 }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
@@ -649,7 +813,7 @@ export default function Home() {
                           </button>
                         )}
                       </div>
-                      <textarea style={{ ...inp, resize: 'vertical', lineHeight: 1.7, minHeight: 76 }} rows={3} placeholder={'Led team of 5 to deliver on time\nIncreased conversion 23% via A/B testing\nReduced costs by $50k'} value={exp.desc} onChange={e => upExp(i, 'desc', e.target.value)} />
+                      <textarea style={{ ...inp, resize: 'vertical', lineHeight: 1.7, minHeight: 76 }} aria-label={`Key achievements for position ${i + 1}`} rows={3} placeholder={'Led team of 5 to deliver on time\nIncreased conversion 23% via A/B testing\nReduced costs by $50k'} value={exp.desc} onChange={e => upExp(i, 'desc', e.target.value)} />
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
                         {BULLET_TEMPLATES.map(item => (
                           <button key={item.id} type="button" onClick={() => appendBulletTemplate(i, item.id)} style={chipBtn}>
@@ -671,16 +835,16 @@ export default function Home() {
                 {form.education.map((edu, i) => (
                   <div key={i} style={secCard}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                      <span style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: textMuted }}>Education {i + 1}</span>
+                      <span style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0, color: textMuted }}>Education {i + 1}</span>
                       {form.education.length > 1 && <button onClick={() => delEdu(i)} className="hov-red" style={{ fontSize: 11, color: textMuted, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>Remove</button>}
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                      <input style={inp} placeholder="Institution" value={edu.institution} onChange={e => upEdu(i, 'institution', e.target.value)} />
-                      <input style={inp} placeholder="Degree / Field" value={edu.degree} onChange={e => upEdu(i, 'degree', e.target.value)} />
+                    <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                      <input style={inp} aria-label={`Institution for education ${i + 1}`} placeholder="Institution" value={edu.institution} onChange={e => upEdu(i, 'institution', e.target.value)} />
+                      <input style={inp} aria-label={`Degree for education ${i + 1}`} placeholder="Degree / Field" value={edu.degree} onChange={e => upEdu(i, 'degree', e.target.value)} />
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
-                      <input style={inp} placeholder="Start year" value={edu.start} onChange={e => upEdu(i, 'start', e.target.value)} />
-                      <input style={inp} placeholder="End year" value={edu.end} onChange={e => upEdu(i, 'end', e.target.value)} />
+                    <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
+                      <input style={inp} aria-label={`Start year for education ${i + 1}`} placeholder="Start year" value={edu.start} onChange={e => upEdu(i, 'start', e.target.value)} />
+                      <input style={inp} aria-label={`End year for education ${i + 1}`} placeholder="End year" value={edu.end} onChange={e => upEdu(i, 'end', e.target.value)} />
                     </div>
                   </div>
                 ))}
@@ -695,7 +859,7 @@ export default function Home() {
                 <label style={lbl}>Skills <span style={{ color: textMuted, fontWeight: 400 }}>— comma separated</span></label>
                 <textarea style={{ ...inp, resize: 'vertical', lineHeight: 1.6 }} rows={3} placeholder="Python, SQL, Figma, Leadership…" value={form.skills} onChange={e => setF('skills', e.target.value)} />
                 <div style={{ marginTop: 8 }}>
-                  <span style={{ fontSize: 11, color: textMuted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Skill packs</span>
+                  <span style={{ fontSize: 11, color: textMuted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0 }}>Skill packs</span>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
                     {SKILL_PRESETS.map(item => (
                       <button key={item.id} type="button" onClick={() => applySkillPreset(item.id)} style={chipBtn}>
@@ -704,6 +868,10 @@ export default function Home() {
                     ))}
                   </div>
                 </div>
+                <label style={{ ...lbl, marginTop: 16 }}>Languages <span style={{ color: textMuted, fontWeight: 400 }}>- comma separated</span></label>
+                <textarea style={{ ...inp, resize: 'vertical', lineHeight: 1.6 }} rows={2} placeholder="English - Fluent, Hindi - Proficient, Nepali - Native" value={form.languages} onChange={e => setF('languages', e.target.value)} />
+                <label style={{ ...lbl, marginTop: 16 }}>Hobbies <span style={{ color: textMuted, fontWeight: 400 }}>- optional</span></label>
+                <input style={inp} aria-label="Hobbies" placeholder="Writing, Cricket, Music" value={form.hobbies} onChange={e => setF('hobbies', e.target.value)} />
                 <label style={{ ...lbl, marginTop: 16 }}>Achievements & Certifications</label>
                 <textarea style={{ ...inp, resize: 'vertical', lineHeight: 1.6 }} rows={3} placeholder="AWS Certified, built a product used by 50k users…" value={form.achievements} onChange={e => setF('achievements', e.target.value)} />
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
@@ -733,13 +901,13 @@ export default function Home() {
 
         {/* ══ RIGHT PANEL ══ */}
         <div className="right-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: bg }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 14px', borderBottom: `1px solid ${cardBorder}`, background: cardBg, flexShrink: 0, gap: 6, flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+          <div className="right-toolbar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 14px', borderBottom: `1px solid ${cardBorder}`, background: cardBg, flexShrink: 0, gap: 6, flexWrap: 'wrap' }}>
+            <div className="panel-tabs" role="tablist" aria-label="Resume workspace panels" style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
               {RIGHT_PANELS.map(p => {
                 const locked = !isPro && p.id !== 'preview' && p.id !== 'coach' && p.id !== 'saved';
                 const isActive = rightPanel === p.id;
                 return (
-                  <button key={p.id} onClick={() => locked ? setShowUpgrade(true) : setRightPanel(p.id)} className="hov-tab"
+                  <button key={p.id} type="button" role="tab" aria-selected={isActive} aria-disabled={locked} onClick={() => locked ? setShowUpgrade(true) : setRightPanel(p.id)} className="hov-tab"
                     style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', fontSize: 12, fontWeight: 500, borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s', background: isActive ? '#1D9E75' : 'transparent', color: isActive ? '#fff' : textSec, opacity: locked ? 0.6 : 1, position: 'relative' }}>
                     <span style={{ fontSize: 11 }}>{locked ? '🔒' : p.icon}</span>
                     {p.label}
@@ -760,7 +928,10 @@ export default function Home() {
             </div>
 
             {rightPanel === 'preview' && (
-              <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+              <div className="preview-actions" style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+                <button onClick={() => setRightPanel('coach')} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', fontSize: 12, fontWeight: 600, borderRadius: 9, border: `1px solid ${cardBorder}`, background: subtleBg, color: a4FitColor, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  A4 {coachInsights.a4Fit.label}
+                </button>
                 <div style={{ position: 'relative' }}>
                   <button onClick={() => setShowTemplates(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', fontSize: 12, fontWeight: 500, borderRadius: 9, border: `1px solid ${cardBorder}`, background: subtleBg, color: textSec, cursor: 'pointer', fontFamily: 'inherit' }}>
                     🎨 {TEMPLATES.find(t => t.id === template)?.label} ▾
@@ -809,11 +980,15 @@ export default function Home() {
             )}
           </div>
 
-          <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
-            {rightPanel === 'preview' && <TemplateComponent resume={liveResume} dark={dark} />}
+          <div className="panel-content" style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
+            {rightPanel === 'preview' && (
+              <div className="resume-preview-shell">
+                <TemplateComponent resume={liveResume} dark={dark} />
+              </div>
+            )}
             {rightPanel === 'coach' && <ResumeCoachPanel resume={usableResume} dark={dark} onFocusSection={focusCoachSection} onOpenAts={() => setRightPanel('ats')} onOpenTailor={() => setRightPanel('tailor')} />}
             {rightPanel === 'saved' && (user ? <SavedCVsPanel cvs={savedCVs} dark={dark} onLoad={handleLoadCV} onDelete={handleDeleteCV} onSave={handleSaveCV} saving={savingCV} currentResume={resume} currentForm={form} /> : <SignInPrompt textPrimary={textPrimary} textSec={textSec} onSignIn={() => router.push('/auth')} />)}
-            {rightPanel === 'tailor' && <TailorPanel resume={usableResume} dark={dark} onTailored={r => { setResume(r); setRightPanel('preview'); toast('Resume tailored! ✓', 'ok'); }} />}
+            {rightPanel === 'tailor' && <TailorPanel resume={usableResume} dark={dark} onTailored={r => { setResume(normalizeResume(r, form)); setRightPanel('preview'); toast('Resume tailored! ✓', 'ok'); }} />}
             {rightPanel === 'cover' && <CoverLetterPanel coverLetter={coverLetter} resume={usableResume} jobDesc={jobDesc} setJobDesc={setJobDesc} companyName={companyName} setCompanyName={setCompanyName} hiringManager={hiringMgr} setHiringManager={setHiringMgr} onGenerate={generateCoverLetter} onUseDraft={text => { setCoverLetter(text); setRightPanel('cover'); toast('Cover letter draft applied.', 'info'); }} loading={coverLoading} dark={dark} />}
             {rightPanel === 'ats' && <ATSScorePanel resume={usableResume} dark={dark} />}
             {rightPanel === 'linkedin' && <LinkedInPanel resume={usableResume} dark={dark} />}

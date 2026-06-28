@@ -1,5 +1,6 @@
 // src/app/api/tailor-resume/route.ts
 import { NextRequest } from 'next/server';
+import { parseAIJson } from '@/lib/aiJson';
 import { getModel, checkRateLimit, getCached, setCached, makeCacheKey, friendlyError } from '@/lib/gemini';
 
 export async function POST(request: NextRequest) {
@@ -48,8 +49,7 @@ Rules:
 
     const result = await model.generateContent(prompt);
     const text = result.response.text();
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    const tailored = JSON.parse(jsonMatch ? jsonMatch[0] : text);
+    const tailored = parseAIJson(text);
 
     setCached(cacheKey, tailored, 1800);
     return Response.json({ resume: tailored });

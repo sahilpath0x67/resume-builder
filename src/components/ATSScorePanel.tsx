@@ -230,7 +230,7 @@ export default function ATSScorePanel({
         {/* General mode info */}
         {mode === 'general' && (
           <div style={{ background: bgSubtle, border: `1px solid ${borderSub}`, borderRadius: 10, padding: '12px 14px', marginBottom: 14 }}>
-            <p style={{ margin: '0 0 6px', fontSize: 11, fontWeight: 600, color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>What we check (instantly, no AI)</p>
+            <p style={{ margin: '0 0 6px', fontSize: 11, fontWeight: 600, color: textMuted, textTransform: 'uppercase', letterSpacing: 0 }}>What we check (instantly, no AI)</p>
             {['Contact info completeness', 'Action verbs in bullet points', 'Quantified achievements', 'Professional summary', 'Skills section', 'Resume length'].map(item => (
               <div key={item} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                 <span style={{ color: '#1D9E75', fontSize: 10, flexShrink: 0 }}>✦</span>
@@ -284,7 +284,7 @@ export default function ATSScorePanel({
 
           {/* Breakdown */}
           <div style={{ ...card, padding: 20 }}>
-            <p style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: textMuted, margin: '0 0 16px' }}>Score Breakdown</p>
+            <p style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0, color: textMuted, margin: '0 0 16px' }}>Score Breakdown</p>
             {result.breakdown && Object.entries(result.breakdown).map(([k, v]) => (
               <div key={k} style={{ marginBottom: 16 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
@@ -314,7 +314,7 @@ export default function ATSScorePanel({
           {/* Suggestions */}
           {result.topSuggestions?.length > 0 && (
             <div style={card}>
-              <p style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: textMuted, margin: '0 0 12px' }}>Top Suggestions</p>
+              <p style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0, color: textMuted, margin: '0 0 12px' }}>Top Suggestions</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {result.topSuggestions.map((s, i) => (
                   <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>

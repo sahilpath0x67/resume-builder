@@ -35,6 +35,7 @@ export default function ResumeCoachPanel({ resume, dark: D, onFocusSection, onOp
   const muted = D ? '#9ca3af' : '#6b7280';
   const dim = D ? '#6b7280' : '#9ca3af';
   const scoreColor = insights.score >= 80 ? '#4ade80' : insights.score >= 60 ? '#fbbf24' : '#f87171';
+  const fitColor = insights.a4Fit.status === 'balanced' ? '#1D9E75' : insights.a4Fit.status === 'dense' ? '#f59e0b' : '#f87171';
 
   const card: React.CSSProperties = {
     background: bg,
@@ -68,14 +69,15 @@ export default function ResumeCoachPanel({ resume, dark: D, onFocusSection, onOp
           <p style={{ margin: '0 0 14px', color: muted, fontSize: 13, lineHeight: 1.6 }}>
             Local, no-AI review for recruiter readiness, ATS basics, and export risk.
           </p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 8 }}>
             {[
               ['Completion', `${insights.completion}%`],
               ['Words', String(insights.words)],
+              ['A4 fit', insights.a4Fit.label],
               ['Issues', String(insights.issues.length)],
             ].map(([label, value]) => (
               <div key={label} style={{ background: bgSubtle, border: `1px solid ${borderSub}`, borderRadius: 10, padding: '10px 12px' }}>
-                <p style={{ margin: 0, color: dim, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</p>
+                <p style={{ margin: 0, color: dim, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0 }}>{label}</p>
                 <p style={{ margin: '3px 0 0', color: text, fontSize: 16, fontWeight: 700 }}>{value}</p>
               </div>
             ))}
@@ -83,9 +85,20 @@ export default function ResumeCoachPanel({ resume, dark: D, onFocusSection, onOp
         </div>
       </div>
 
+      <div style={card}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
+          <p style={{ margin: 0, color: text, fontSize: 14, fontWeight: 800 }}>A4 Page Fit</p>
+          <span style={{ fontSize: 11, fontWeight: 800, color: fitColor }}>{insights.a4Fit.score}% {insights.a4Fit.label}</span>
+        </div>
+        <div style={{ height: 8, background: bgSubtle, borderRadius: 99, overflow: 'hidden', border: `1px solid ${borderSub}` }}>
+          <div style={{ width: `${insights.a4Fit.score}%`, height: '100%', background: fitColor, borderRadius: 99 }} />
+        </div>
+        <p style={{ margin: '10px 0 0', color: muted, fontSize: 12.5, lineHeight: 1.55 }}>{insights.a4Fit.detail}</p>
+      </div>
+
       {insights.issues.length > 0 ? (
         <div style={card}>
-          <p style={{ margin: '0 0 12px', fontSize: 11, color: muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Next best actions</p>
+          <p style={{ margin: '0 0 12px', fontSize: 11, color: muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0 }}>Next best actions</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {insights.issues.slice(0, 6).map(issue => (
               <div key={issue.id} style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 12, alignItems: 'start', background: bgSubtle, border: `1px solid ${borderSub}`, borderRadius: 12, padding: '12px 14px' }}>
@@ -113,7 +126,7 @@ export default function ResumeCoachPanel({ resume, dark: D, onFocusSection, onOp
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
         <div style={card}>
-          <p style={{ margin: '0 0 12px', fontSize: 11, color: muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Strengths</p>
+          <p style={{ margin: '0 0 12px', fontSize: 11, color: muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0 }}>Strengths</p>
           {insights.strengths.length > 0 ? insights.strengths.map(strength => (
             <div key={strength} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
               <span style={{ color: '#1D9E75', fontSize: 12, marginTop: 1 }}>✓</span>
@@ -125,7 +138,7 @@ export default function ResumeCoachPanel({ resume, dark: D, onFocusSection, onOp
         </div>
 
         <div style={card}>
-          <p style={{ margin: '0 0 12px', fontSize: 11, color: muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Power tools</p>
+          <p style={{ margin: '0 0 12px', fontSize: 11, color: muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0 }}>Power tools</p>
           <button onClick={onOpenAts} style={{ width: '100%', padding: '9px 12px', borderRadius: 10, border: 'none', background: '#1D9E75', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 8 }}>
             Run ATS score
           </button>

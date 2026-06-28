@@ -307,7 +307,7 @@ export default function CoverLetterPanel({
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{
                 fontSize: 11, fontWeight: 600,
-                textTransform: 'uppercase', letterSpacing: '0.06em',
+                textTransform: 'uppercase', letterSpacing: 0,
                 color: textMuted,
               }}>
                 Cover Letter
@@ -356,7 +356,7 @@ export default function CoverLetterPanel({
               color: text,
               whiteSpace: 'pre-wrap',
               fontFamily: 'Georgia, "Times New Roman", serif',
-              letterSpacing: '0.01em',
+              letterSpacing: 0,
             }}>
               {coverLetter}
             </div>
@@ -413,7 +413,7 @@ export default function CoverLetterPanel({
             }}>
               <p style={{
                 margin: '0 0 10px', fontSize: 11, fontWeight: 600,
-                color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em',
+                color: textMuted, textTransform: 'uppercase', letterSpacing: 0,
               }}>
                 Tips for a great letter
               </p>
