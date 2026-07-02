@@ -72,7 +72,7 @@ export function downloadProjectBackup(project: ResumeProjectBackup) {
     .trim()
     .replace(/\s+/g, '_') || 'resume';
   a.href = url;
-  a.download = `${safeName}_AnantaCV_backup.json`;
+  a.download = `${safeName}_NepAstra_backup.json`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -84,7 +84,7 @@ export async function readProjectBackup(file: File): Promise<ResumeProjectBackup
   const parsed = JSON.parse(text) as Partial<ResumeProjectBackup>;
 
   if (parsed.version !== 1 || !parsed.form) {
-    throw new Error('Invalid AnantaCV backup file.');
+    throw new Error('Invalid NepAstra backup file.');
   }
 
   return {
@@ -163,7 +163,7 @@ function buildHTMLString(r: ResumeOutput): string {
     height: 84px;
     border-radius: 50%;
     object-fit: cover;
-    border: 2px solid #1D9E75;
+    border: 2px solid #1D4ED8;
     flex-shrink: 0;
   }
   /* Header */
@@ -178,7 +178,7 @@ function buildHTMLString(r: ResumeOutput): string {
     font-family: 'Helvetica Neue', Arial, sans-serif;
     font-size: 13px;
     font-weight: 600;
-    color: #1D9E75;
+    color: #1D4ED8;
     margin-bottom: 8px;
   }
   .contacts {
@@ -190,10 +190,10 @@ function buildHTMLString(r: ResumeOutput): string {
     gap: 16px;
     margin-bottom: 14px;
   }
-  .contacts a { color: #1D9E75; text-decoration: none; }
+  .contacts a { color: #1D4ED8; text-decoration: none; }
   .divider {
     height: 2px;
-    background: #1D9E75;
+    background: #1D4ED8;
     border-radius: 1px;
     margin-bottom: 22px;
   }
@@ -205,7 +205,7 @@ function buildHTMLString(r: ResumeOutput): string {
     font-weight: 700;
     letter-spacing: 0;
     text-transform: uppercase;
-    color: #1D9E75;
+    color: #1D4ED8;
     margin-bottom: 8px;
     padding-bottom: 4px;
     border-bottom: 0.5px solid #e5e7eb;
@@ -240,8 +240,8 @@ function buildHTMLString(r: ResumeOutput): string {
   /* Skills */
   .tags { display: flex; flex-wrap: wrap; gap: 6px; }
   .tag {
-    background: #E1F5EE;
-    color: #0F6E56;
+    background: #DBEAFE;
+    color: #1E3A8A;
     border-radius: 20px;
     font-size: 11px;
     font-family: 'Helvetica Neue', Arial, sans-serif;

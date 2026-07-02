@@ -39,7 +39,7 @@ export default class ErrorBoundary extends React.Component<{ children: React.Rea
             </p>
             <button
               onClick={() => window.location.reload()}
-              style={{ padding: '10px 24px', background: '#1D9E75', color: '#fff', border: 'none', borderRadius: 12, fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}
+              style={{ padding: '10px 24px', background: '#1D4ED8', color: '#fff', border: 'none', borderRadius: 12, fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}
             >
               Refresh page
             </button>

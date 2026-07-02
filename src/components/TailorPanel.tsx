@@ -62,7 +62,7 @@ export default function TailorPanel({ resume, dark: D, onTailored }: Props) {
             <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: text }}>Tailor to Job Description</p>
             <p style={{ margin: 0, fontSize: 11, color: textMuted }}>AI rewrites your resume to match a specific job</p>
           </div>
-          <div style={{ fontSize: 11, fontWeight: 500, padding: '4px 10px', borderRadius: 99, background: resume ? '#d1fae5' : D ? '#3b1e06' : '#fef3c7', color: resume ? '#065f46' : D ? '#fbbf24' : '#92400e', flexShrink: 0 }}>
+          <div style={{ fontSize: 11, fontWeight: 500, padding: '4px 10px', borderRadius: 99, background: resume ? '#DBEAFE' : D ? '#3b1e06' : '#fef3c7', color: resume ? '#1E3A8A' : D ? '#fbbf24' : '#92400e', flexShrink: 0 }}>
             {resume ? '✓ Resume ready' : '⚠ Fill resume first'}
           </div>
         </div>
@@ -113,7 +113,7 @@ export default function TailorPanel({ resume, dark: D, onTailored }: Props) {
 
         {/* Error / success */}
         {error && <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171', borderRadius: 10, padding: '10px 14px', fontSize: 12, marginBottom: 12 }}>⚠ {error}</div>}
-        {success && <div style={{ background: 'rgba(29,158,117,0.1)', border: '1px solid rgba(29,158,117,0.2)', color: '#1D9E75', borderRadius: 10, padding: '10px 14px', fontSize: 12, marginBottom: 12 }}>✓ {success}</div>}
+        {success && <div style={{ background: 'rgba(29,78,216,0.1)', border: '1px solid rgba(29,78,216,0.2)', color: '#1D4ED8', borderRadius: 10, padding: '10px 14px', fontSize: 12, marginBottom: 12 }}>✓ {success}</div>}
 
         {/* Button */}
         <button onClick={tailor} disabled={loading || !resume || !jobDesc.trim()} style={{ width: '100%', padding: '11px 0', borderRadius: 12, border: 'none', background: loading ? '#6d28d9' : '#7c3aed', color: '#fff', fontSize: 13, fontWeight: 500, cursor: loading || !resume || !jobDesc.trim() ? 'not-allowed' : 'pointer', opacity: !resume || !jobDesc.trim() ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontFamily: 'inherit', transition: 'background 0.15s' }}>

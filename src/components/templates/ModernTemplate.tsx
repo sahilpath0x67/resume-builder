@@ -2,7 +2,7 @@ import type { ResumeOutput } from '../../lib/types';
 
 export default function ModernTemplate({ resume, dark: D }: { resume: ResumeOutput; dark: boolean }) {
   const bg        = D ? '#1f2937' : '#ffffff';
-  const sidebar   = D ? '#111827' : '#0F6E56';
+  const sidebar   = D ? '#111827' : '#1E3A8A';
   const textC     = D ? '#f3f4f6' : '#111827';
   const textMuted = D ? '#9ca3af' : '#6b7280';
 
@@ -80,7 +80,7 @@ export default function ModernTemplate({ resume, dark: D }: { resume: ResumeOutp
                   <span style={{ fontWeight: 700, fontSize: 13.6, color: textC }}>{exp.role}</span>
                   <span style={{ fontSize: 11, color: textMuted }}>{exp.period}</span>
                 </div>
-                <p style={{ fontSize: 12, color: '#1D9E75', fontWeight: 600, margin: '1px 0 5px' }}>{exp.company}</p>
+                <p style={{ fontSize: 12, color: '#1D4ED8', fontWeight: 600, margin: '1px 0 5px' }}>{exp.company}</p>
                 {exp.bullets?.length > 0 && <ul style={{ paddingLeft: '1.2em', margin: 0 }}>{exp.bullets.map((b, j) => <li key={j} style={{ fontSize: 12.2, marginBottom: 3, color: textMuted, lineHeight: 1.5 }}>{b}</li>)}</ul>}
               </div>
             ))}
@@ -116,8 +116,8 @@ export default function ModernTemplate({ resume, dark: D }: { resume: ResumeOutp
 function SidebarSectionTitle({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-      <div style={{ width: 3, height: 16, background: '#1D9E75', borderRadius: 99 }} />
-      <h2 style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0, color: '#1D9E75', margin: 0 }}>{children}</h2>
+      <div style={{ width: 3, height: 16, background: '#1D4ED8', borderRadius: 99 }} />
+      <h2 style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0, color: '#1D4ED8', margin: 0 }}>{children}</h2>
     </div>
   );
 }

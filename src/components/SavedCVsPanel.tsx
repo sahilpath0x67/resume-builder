@@ -43,7 +43,7 @@ export default function SavedCVsPanel({ cvs, dark: D, onLoad, onDelete, onSave, 
       {hasAnything && (
         <div style={cardStyle}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: '#1D9E75', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 15, flexShrink: 0 }}>💾</div>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: '#1D4ED8', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 15, flexShrink: 0 }}>💾</div>
             <div>
               <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: text }}>Save current CV</p>
               <p style={{ margin: 0, fontSize: 11, color: textMuted }}>Give it a name so you can find it later</p>
@@ -60,7 +60,7 @@ export default function SavedCVsPanel({ cvs, dark: D, onLoad, onDelete, onSave, 
             <button
               onClick={() => { if (saveName.trim()) { onSave(saveName.trim()); setSaveName(''); } }}
               disabled={saving || !saveName.trim()}
-              style={{ padding: '10px 18px', borderRadius: 10, border: 'none', background: saving ? '#5DCAA5' : '#1D9E75', color: '#fff', fontSize: 13, fontWeight: 500, cursor: saving || !saveName.trim() ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: !saveName.trim() ? 0.5 : 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+              style={{ padding: '10px 18px', borderRadius: 10, border: 'none', background: saving ? '#93C5FD' : '#1D4ED8', color: '#fff', fontSize: 13, fontWeight: 500, cursor: saving || !saveName.trim() ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: !saveName.trim() ? 0.5 : 1, display: 'flex', alignItems: 'center', gap: 6 }}>
               {saving ? <Spin /> : null}
               {saving ? 'Saving…' : 'Save'}
             </button>
@@ -72,7 +72,7 @@ export default function SavedCVsPanel({ cvs, dark: D, onLoad, onDelete, onSave, 
       <div style={cardStyle}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: '#1D9E75', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 15, flexShrink: 0 }}>📁</div>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: '#1D4ED8', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 15, flexShrink: 0 }}>📁</div>
             <div>
               <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: text }}>Your saved CVs</p>
               <p style={{ margin: 0, fontSize: 11, color: textMuted }}>{cvs.length} saved {cvs.length === 1 ? 'CV' : 'CVs'}</p>
@@ -97,14 +97,14 @@ export default function SavedCVsPanel({ cvs, dark: D, onLoad, onDelete, onSave, 
                     <span>{cv.resume.name}</span>
                     <span>·</span>
                     <span>{fmt(cv.updatedAt)}</span>
-                    {cv.coverLetter && <><span>·</span><span style={{ color: '#1D9E75' }}>✉ Cover letter</span></>}
+                    {cv.coverLetter && <><span>·</span><span style={{ color: '#1D4ED8' }}>✉ Cover letter</span></>}
                     {cv.formData && <><span>·</span><span style={{ color: '#60a5fa' }}>✏ Editable</span></>}
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                   <button
                     onClick={() => onLoad(cv)}
-                    style={{ fontSize: 12, padding: '6px 14px', borderRadius: 8, border: `1px solid ${borderCol}`, background: 'transparent', color: '#1D9E75', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}>
+                    style={{ fontSize: 12, padding: '6px 14px', borderRadius: 8, border: `1px solid ${borderCol}`, background: 'transparent', color: '#1D4ED8', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}>
                     Load
                   </button>
                   {confirmDelete === cv.id ? (

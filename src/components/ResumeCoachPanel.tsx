@@ -35,7 +35,7 @@ export default function ResumeCoachPanel({ resume, dark: D, onFocusSection, onOp
   const muted = D ? '#9ca3af' : '#6b7280';
   const dim = D ? '#6b7280' : '#9ca3af';
   const scoreColor = insights.score >= 80 ? '#4ade80' : insights.score >= 60 ? '#fbbf24' : '#f87171';
-  const fitColor = insights.a4Fit.status === 'balanced' ? '#1D9E75' : insights.a4Fit.status === 'dense' ? '#f59e0b' : '#f87171';
+  const fitColor = insights.a4Fit.status === 'balanced' ? '#1D4ED8' : insights.a4Fit.status === 'dense' ? '#f59e0b' : '#f87171';
 
   const card: React.CSSProperties = {
     background: bg,
@@ -62,7 +62,7 @@ export default function ResumeCoachPanel({ resume, dark: D, onFocusSection, onOp
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
             <h2 style={{ margin: 0, fontSize: 18, color: text }}>Resume Coach</h2>
-            <span style={{ fontSize: 11, padding: '3px 9px', borderRadius: 99, background: insights.exportReady ? 'rgba(29,158,117,0.14)' : 'rgba(251,191,36,0.14)', color: insights.exportReady ? '#1D9E75' : '#d97706', fontWeight: 700 }}>
+            <span style={{ fontSize: 11, padding: '3px 9px', borderRadius: 99, background: insights.exportReady ? 'rgba(29,78,216,0.14)' : 'rgba(251,191,36,0.14)', color: insights.exportReady ? '#1D4ED8' : '#d97706', fontWeight: 700 }}>
               {insights.exportReady ? 'Export ready' : 'Needs review'}
             </span>
           </div>
@@ -110,7 +110,7 @@ export default function ResumeCoachPanel({ resume, dark: D, onFocusSection, onOp
                   </div>
                   <p style={{ margin: '4px 0 0', color: muted, fontSize: 12, lineHeight: 1.5 }}>{issue.detail}</p>
                 </div>
-                <button onClick={() => onFocusSection(issue.section)} style={{ padding: '6px 10px', borderRadius: 8, border: `1px solid ${border}`, background: 'transparent', color: '#1D9E75', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
+                <button onClick={() => onFocusSection(issue.section)} style={{ padding: '6px 10px', borderRadius: 8, border: `1px solid ${border}`, background: 'transparent', color: '#1D4ED8', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
                   {issue.action}
                 </button>
               </div>
@@ -119,7 +119,7 @@ export default function ResumeCoachPanel({ resume, dark: D, onFocusSection, onOp
         </div>
       ) : (
         <div style={card}>
-          <p style={{ margin: 0, color: '#1D9E75', fontSize: 14, fontWeight: 700 }}>No major local issues found.</p>
+          <p style={{ margin: 0, color: '#1D4ED8', fontSize: 14, fontWeight: 700 }}>No major local issues found.</p>
           <p style={{ margin: '6px 0 0', color: muted, fontSize: 12 }}>Run a job-specific ATS scan if you want to match a particular role.</p>
         </div>
       )}
@@ -129,7 +129,7 @@ export default function ResumeCoachPanel({ resume, dark: D, onFocusSection, onOp
           <p style={{ margin: '0 0 12px', fontSize: 11, color: muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0 }}>Strengths</p>
           {insights.strengths.length > 0 ? insights.strengths.map(strength => (
             <div key={strength} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-              <span style={{ color: '#1D9E75', fontSize: 12, marginTop: 1 }}>✓</span>
+              <span style={{ color: '#1D4ED8', fontSize: 12, marginTop: 1 }}>✓</span>
               <span style={{ color: text, fontSize: 12, lineHeight: 1.5 }}>{strength}</span>
             </div>
           )) : (
@@ -139,7 +139,7 @@ export default function ResumeCoachPanel({ resume, dark: D, onFocusSection, onOp
 
         <div style={card}>
           <p style={{ margin: '0 0 12px', fontSize: 11, color: muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0 }}>Power tools</p>
-          <button onClick={onOpenAts} style={{ width: '100%', padding: '9px 12px', borderRadius: 10, border: 'none', background: '#1D9E75', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 8 }}>
+          <button onClick={onOpenAts} style={{ width: '100%', padding: '9px 12px', borderRadius: 10, border: 'none', background: '#1D4ED8', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 8 }}>
             Run ATS score
           </button>
           <button onClick={onOpenTailor} style={{ width: '100%', padding: '9px 12px', borderRadius: 10, border: `1px solid ${border}`, background: 'transparent', color: text, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>

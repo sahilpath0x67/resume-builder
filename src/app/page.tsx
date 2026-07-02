@@ -1,4 +1,5 @@
 'use client';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { signOut } from 'firebase/auth';
@@ -237,8 +238,8 @@ function normalizeResume(value?: Partial<ResumeOutput> | null, fallbackForm?: Fo
 type TemplateId = 'classic' | 'modern' | 'minimal' | 'executive' | 'creative' | 'compact' | 'bold' | 'photo-sidebar';
 const TEMPLATES: { id: TemplateId; label: string; desc: string; color: string }[] = [
   { id: 'photo-sidebar', label: 'Photo Sidebar', desc: 'A4 profile sidebar', color: '#1f2937' },
-  { id: 'classic', label: 'Classic', desc: 'Traditional serif', color: '#1D9E75' },
-  { id: 'modern', label: 'Modern', desc: 'Two-column sidebar', color: '#0F6E56' },
+  { id: 'classic', label: 'Classic', desc: 'Traditional serif', color: '#1D4ED8' },
+  { id: 'modern', label: 'Modern', desc: 'Two-column sidebar', color: '#1E3A8A' },
   { id: 'minimal', label: 'Minimal', desc: 'Clean centred', color: '#6b7280' },
   { id: 'executive', label: 'Executive', desc: 'Navy & gold', color: '#f59e0b' },
   { id: 'creative', label: 'Creative', desc: 'Purple timeline', color: '#7c3aed' },
@@ -258,6 +259,125 @@ const RIGHT_PANELS = [
   { id: 'linkedin', label: 'LinkedIn', icon: '🔗' },
 ] as const;
 type RightPanel = (typeof RIGHT_PANELS)[number]['id'];
+
+const BRAND = {
+  name: 'NepAstra',
+  logo: '/nepastra-logo.jpeg',
+  blue: '#1D4ED8',
+  red: '#DC2626',
+  navy: '#172554',
+  blueSoft: 'rgba(29,78,216,0.12)',
+  redSoft: 'rgba(220,38,38,0.12)',
+};
+
+type FloatingMenuProps = {
+  open: boolean;
+  anchorRef: React.RefObject<HTMLElement | null>;
+  onClose: () => void;
+  children: React.ReactNode;
+  surface: string;
+  border: string;
+  label: string;
+  width?: number;
+  align?: 'left' | 'right';
+};
+
+function FloatingMenu({
+  open,
+  anchorRef,
+  onClose,
+  children,
+  surface,
+  border,
+  label,
+  width = 220,
+  align = 'right',
+}: FloatingMenuProps) {
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const [position, setPosition] = useState({ top: 0, left: 0, maxHeight: 360 });
+
+  const updatePosition = useCallback(() => {
+    const anchor = anchorRef.current;
+    if (!anchor || typeof window === 'undefined') return;
+
+    const margin = 12;
+    const gap = 8;
+    const rect = anchor.getBoundingClientRect();
+    const desiredLeft = align === 'right' ? rect.right - width : rect.left;
+    const left = Math.max(margin, Math.min(desiredLeft, window.innerWidth - width - margin));
+
+    let top = rect.bottom + gap;
+    let maxHeight = window.innerHeight - top - margin;
+
+    if (maxHeight < 180 && rect.top > window.innerHeight - rect.bottom) {
+      maxHeight = Math.min(420, rect.top - margin - gap);
+      top = Math.max(margin, rect.top - maxHeight - gap);
+    }
+
+    setPosition({
+      top,
+      left,
+      maxHeight: Math.max(160, Math.min(420, maxHeight)),
+    });
+  }, [align, anchorRef, width]);
+
+  useEffect(() => {
+    if (!open) return;
+    updatePosition();
+
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (anchorRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      onClose();
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('touchstart', handlePointerDown, { passive: true });
+    document.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', onClose, true);
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('touchstart', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', onClose, true);
+    };
+  }, [anchorRef, onClose, open, updatePosition]);
+
+  if (!open || typeof document === 'undefined') return null;
+
+  return createPortal(
+    <div
+      ref={menuRef}
+      role="menu"
+      aria-label={label}
+      style={{
+        position: 'fixed',
+        top: position.top,
+        left: position.left,
+        zIndex: 10000,
+        width,
+        maxHeight: position.maxHeight,
+        overflowY: 'auto',
+        background: surface,
+        border: `1px solid ${border}`,
+        borderRadius: 12,
+        boxShadow: '0 18px 45px rgba(15,23,42,0.28)',
+        padding: 4,
+      }}
+    >
+      {children}
+    </div>,
+    document.body
+  );
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 export default function Home() {
@@ -281,6 +401,8 @@ export default function Home() {
   const lastAutoSave = useRef<number>(0);
   const backupInputRef = useRef<HTMLInputElement | null>(null);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
+  const templateButtonRef = useRef<HTMLButtonElement | null>(null);
+  const exportButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const router = useRouter();
   const { user, profile, refreshProfile } = useAuth();
@@ -306,6 +428,9 @@ export default function Home() {
   const [copyDone, setCopyDone] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
 
+  const closeTemplates = useCallback(() => setShowTemplates(false), []);
+  const closeExport = useCallback(() => setExportOpen(false), []);
+
   // ── Toast helper ──────────────────────────────────────────────────────────
   const toast = useCallback((msg: string, type: 'ok' | 'err' | 'info' = 'ok', duration = 3500) => {
     const id = ++toastId;
@@ -320,6 +445,12 @@ export default function Home() {
   }, [resume]);
   useEffect(() => { document.documentElement.classList.toggle('dark', dark); document.body.style.background = dark ? '#111827' : '#f9fafb'; }, [dark]);
   useEffect(() => { localStorage.setItem('resume-form', JSON.stringify(form)); }, [form]);
+  useEffect(() => {
+    if (rightPanel !== 'preview') {
+      closeTemplates();
+      closeExport();
+    }
+  }, [closeExport, closeTemplates, rightPanel]);
 
   // ── Auto-save to Firestore every 30s ─────────────────────────────────────
   useEffect(() => {
@@ -592,28 +723,32 @@ export default function Home() {
   if (!mounted) return null;
 
   return (
-    <div className="app-shell" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: bg, color: textPrimary, fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif' }}>
+    <main id="main-content" className="app-shell" style={{ minHeight: '100svh', display: 'flex', flexDirection: 'column', background: bg, color: textPrimary, fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif' }}>
       <style>{`
+        html, body { overflow-x: hidden; max-width: 100vw; }
+        body { position: relative; }
         @keyframes spin      { to { transform: rotate(360deg); } }
         @keyframes fadeIn    { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
         @keyframes modalIn   { from { opacity:0; transform:scale(0.95); } to { opacity:1; transform:scale(1); } }
         @keyframes toastIn   { from { opacity:0; transform:translateX(60px); } to { opacity:1; transform:translateX(0); } }
         @keyframes toastOut  { from { opacity:1; } to { opacity:0; transform:translateX(60px); } }
-        input:focus, textarea:focus { border-color: #1D9E75 !important; box-shadow: 0 0 0 3px rgba(29,158,117,0.15) !important; }
+        input:focus, textarea:focus { border-color: #1D4ED8 !important; box-shadow: 0 0 0 3px rgba(29,78,216,0.15) !important; }
         * { box-sizing: border-box; }
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: ${D ? '#374151' : '#e5e7eb'}; border-radius: 99px; }
         .hov-red:hover  { color: #f87171 !important; }
-        .hov-teal:hover { background: rgba(29,158,117,0.1) !important; }
+        .hov-teal:hover { background: rgba(29,78,216,0.1) !important; }
         .hov-row:hover  { background: ${D ? 'rgba(55,65,81,0.5)' : '#f9fafb'} !important; }
         .hov-tab:hover  { opacity: 0.8; }
         .print-preview-sheet #resume-output { min-height: 297mm !important; border-radius: 0 !important; }
         @media print { .no-print { display: none !important; } body { background: white !important; } }
         @media (max-width: 768px) {
-          .left-panel { width: 100% !important; min-width: unset !important; border-right: none !important; border-bottom: 1px solid ${cardBorder}; max-height: 50vh; }
-          .body-wrap  { flex-direction: column !important; height: auto !important; overflow: visible !important; }
-          .right-panel { height: 50vh; }
+          .left-panel { width: 100% !important; min-width: 0 !important; border-right: none !important; border-bottom: 1px solid ${cardBorder}; max-height: none !important; }
+          .body-wrap  { flex-direction: column !important; height: auto !important; min-height: 0 !important; overflow: visible !important; }
+          .right-panel { height: auto !important; min-height: 0 !important; overflow: visible !important; }
+          .editor-scroll,
+          .panel-content { flex: none !important; overflow: visible !important; }
           .header-pills { display: none !important; }
           .word-pill { display: none !important; }
         }
@@ -625,7 +760,7 @@ export default function Home() {
         {toasts.map(t => (
           <div key={t.id} role={t.type === 'err' ? 'alert' : 'status'} style={{
             padding: '10px 16px', borderRadius: 12, fontSize: 13, fontWeight: 500,
-            background: t.type === 'err' ? '#ef4444' : t.type === 'info' ? (D ? '#374151' : '#1f2937') : '#1D9E75',
+            background: t.type === 'err' ? '#ef4444' : t.type === 'info' ? (D ? '#374151' : '#1f2937') : '#1D4ED8',
             color: '#fff', boxShadow: '0 4px 20px rgba(0,0,0,0.25)',
             animation: 'toastIn 0.25s ease', maxWidth: 320,
             display: 'flex', alignItems: 'center', gap: 8, pointerEvents: 'auto',
@@ -642,7 +777,7 @@ export default function Home() {
           <div className="no-print" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 24px', background: '#fff', borderBottom: '1px solid #e5e7eb', marginBottom: 24 }}>
             <span style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>Print Preview</span>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={() => window.print()} style={{ padding: '8px 20px', background: '#1D9E75', color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>🖨 Print</button>
+              <button onClick={() => window.print()} style={{ padding: '8px 20px', background: '#1D4ED8', color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>🖨 Print</button>
               <button onClick={() => setShowPrintView(false)} style={{ padding: '8px 16px', background: 'transparent', color: '#6b7280', border: '1px solid #e5e7eb', borderRadius: 10, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>✕ Close</button>
             </div>
           </div>
@@ -655,14 +790,18 @@ export default function Home() {
       {/* ── HEADER ── */}
       <header className="app-header no-print" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderBottom: `1px solid ${cardBorder}`, background: cardBg, flexShrink: 0, zIndex: 10, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ width: 30, height: 30, borderRadius: 9, background: 'linear-gradient(135deg,#0F6E56,#1D9E75)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 13, flexShrink: 0 }}>A</div>
-          <span style={{ fontWeight: 700, fontSize: 14, color: textPrimary, letterSpacing: 0 }}>Ananta<span style={{ color: '#1D9E75' }}>CV</span></span>
+          <div style={{ width: 38, height: 30, borderRadius: 8, background: '#fff', border: `1px solid ${cardBorder}`, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <img src={BRAND.logo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scale(1.35)' }} />
+          </div>
+          <span style={{ fontWeight: 800, fontSize: 14, color: textPrimary, letterSpacing: 0 }}>
+            <span style={{ color: BRAND.red }}>Nep</span><span style={{ color: BRAND.blue }}>Astra</span>
+          </span>
         </div>
 
         {/* Progress pills — hidden on mobile */}
         <div className="header-pills" style={{ display: 'flex', alignItems: 'center', gap: 4, marginLeft: 8 }}>
           {progressItems.map(({ label, filled }) => (
-            <span key={label} style={{ fontSize: 10, padding: '2px 8px', borderRadius: 99, fontWeight: 500, background: filled ? 'rgba(29,158,117,0.15)' : subtleBg, color: filled ? '#1D9E75' : textMuted, border: `1px solid ${filled ? 'rgba(29,158,117,0.3)' : cardBorder}` }}>
+            <span key={label} style={{ fontSize: 10, padding: '2px 8px', borderRadius: 99, fontWeight: 500, background: filled ? 'rgba(29,78,216,0.15)' : subtleBg, color: filled ? '#1D4ED8' : textMuted, border: `1px solid ${filled ? 'rgba(29,78,216,0.3)' : cardBorder}` }}>
               {filled ? '✓ ' : ''}{label}
             </span>
           ))}
@@ -671,7 +810,7 @@ export default function Home() {
         <div className="header-actions" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
           {/* Word count + ATS score — hidden on mobile */}
           <div className="word-pill" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span suppressHydrationWarning style={{ fontSize: 10, padding: '2px 8px', borderRadius: 99, fontWeight: 500, background: subtleBg, color: textMuted, border: `1px solid ${cardBorder}` }}>
+            <span suppressHydrationWarning style={{ fontSize: 10, padding: '2px 8px', borderRadius: 99, fontWeight: 500, background: subtleBg, color: textMuted, border: `1px solid ${cardBorder}`, overflowX: 'hidden' }}>
               {words}w · <span style={{ color: lengthInfo.color, fontWeight: 600 }}>{lengthInfo.label}</span>
             </span>
             {/* ATS score badge on preview tab */}
@@ -682,23 +821,23 @@ export default function Home() {
 
           {/* Auto-save indicator */}
           {autoSaveLabel && (
-            <span style={{ fontSize: 11, color: '#1D9E75', fontWeight: 500 }}>{autoSaveLabel}</span>
+            <span style={{ fontSize: 11, color: '#1D4ED8', fontWeight: 500 }}>{autoSaveLabel}</span>
           )}
 
-          {isPro && <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 99, background: 'rgba(29,158,117,0.15)', color: '#1D9E75', border: '1px solid rgba(29,158,117,0.3)' }}>✦ Pro</span>}
+          {isPro && <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 99, background: 'rgba(29,78,216,0.15)', color: '#1D4ED8', border: '1px solid rgba(29,78,216,0.3)' }}>✦ Pro</span>}
 
           <button type="button" onClick={() => setDark(d => !d)} aria-label={D ? 'Switch to light mode' : 'Switch to dark mode'} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 9, fontSize: 12, fontWeight: 500, border: `1px solid ${cardBorder}`, background: subtleBg, color: textSec, cursor: 'pointer', fontFamily: 'inherit' }}>
             {D ? '☀' : '🌙'}
           </button>
 
-          {!isPro && <button onClick={() => setShowUpgrade(true)} style={{ fontSize: 12, padding: '5px 12px', borderRadius: 8, border: 'none', background: '#1D9E75', color: '#fff', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}>✦ Pro</button>}
+          {!isPro && <button onClick={() => setShowUpgrade(true)} style={{ fontSize: 12, padding: '5px 12px', borderRadius: 8, border: 'none', background: '#1D4ED8', color: '#fff', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}>✦ Pro</button>}
 
           {user && <button onClick={() => setShowReferral(true)} style={{ fontSize: 12, padding: '5px 10px', borderRadius: 8, border: `1px solid ${cardBorder}`, background: 'transparent', color: textSec, cursor: 'pointer', fontFamily: 'inherit' }}>🎁</button>}
 
           {user ? (
             <div style={{ position: 'relative' }}>
               <button type="button" onClick={() => setShowUserMenu(m => !m)} aria-haspopup="menu" aria-expanded={showUserMenu} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 9, border: `1px solid ${cardBorder}`, background: subtleBg, color: textSec, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}>
-                <div style={{ width: 20, height: 20, borderRadius: '50%', background: '#1D9E75', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 10, fontWeight: 700 }}>
+                <div style={{ width: 20, height: 20, borderRadius: '50%', background: '#1D4ED8', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 10, fontWeight: 700 }}>
                   {(user.displayName ?? user.email ?? '?')[0].toUpperCase()}
                 </div>
                 <span style={{ maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.displayName ?? user.email?.split('@')[0]}</span>
@@ -710,11 +849,11 @@ export default function Home() {
                     <div style={{ padding: '12px 16px', borderBottom: `1px solid ${cardBorder}` }}>
                       <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: textPrimary }}>{user.displayName ?? 'User'}</p>
                       <p style={{ margin: 0, fontSize: 11, color: textSec }}>{user.email}</p>
-                      {isPro && <span style={{ fontSize: 10, color: '#1D9E75', fontWeight: 600 }}>✦ Pro member</span>}
+                      {isPro && <span style={{ fontSize: 10, color: '#1D4ED8', fontWeight: 600 }}>✦ Pro member</span>}
                     </div>
                     <button onClick={() => { setShowUserMenu(false); setRightPanel('saved'); }} style={{ width: '100%', textAlign: 'left', padding: '10px 16px', fontSize: 12, background: 'transparent', border: 'none', color: textPrimary, cursor: 'pointer', fontFamily: 'inherit' }}>💾 My saved CVs</button>
                     <button onClick={() => { setShowUserMenu(false); setShowReferral(true); }} style={{ width: '100%', textAlign: 'left', padding: '10px 16px', fontSize: 12, background: 'transparent', border: 'none', color: textPrimary, cursor: 'pointer', fontFamily: 'inherit' }}>🎁 Refer a friend</button>
-                    {!isPro && <button onClick={() => { setShowUserMenu(false); setShowUpgrade(true); }} style={{ width: '100%', textAlign: 'left', padding: '10px 16px', fontSize: 12, background: 'transparent', border: 'none', color: '#1D9E75', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}>✦ Upgrade to Pro</button>}
+                    {!isPro && <button onClick={() => { setShowUserMenu(false); setShowUpgrade(true); }} style={{ width: '100%', textAlign: 'left', padding: '10px 16px', fontSize: 12, background: 'transparent', border: 'none', color: '#1D4ED8', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}>✦ Upgrade to Pro</button>}
                     <button onClick={async () => { await signOut(auth); setShowUserMenu(false); }} style={{ width: '100%', textAlign: 'left', padding: '10px 16px', fontSize: 12, background: 'transparent', border: 'none', borderTop: `1px solid ${cardBorder}`, color: '#f87171', cursor: 'pointer', fontFamily: 'inherit' }}>Sign out</button>
                   </div>
                 </>
@@ -727,13 +866,13 @@ export default function Home() {
       </header>
 
       {/* ── BODY ── */}
-      <div className="body-wrap" style={{ display: 'flex', flex: 1, overflow: 'hidden', height: 'calc(100vh - 53px)' }}>
+      <div className="body-wrap" style={{ display: 'flex', flex: 1, overflowX: 'visible', overflowY: 'hidden', height: 'calc(100svh - 53px)', minHeight: 0 }}>
 
         {/* ══ LEFT PANEL ══ */}
-        <div className="left-panel" style={{ width: 360, minWidth: 300, display: 'flex', flexDirection: 'column', borderRight: `1px solid ${cardBorder}`, background: cardBg, flexShrink: 0 }}>
+        <div className="left-panel" style={{ width: 360, minWidth: 300, minHeight: 0, display: 'flex', flexDirection: 'column', borderRight: `1px solid ${cardBorder}`, background: cardBg, flexShrink: 0 }}>
           <div className="editor-tabs" role="tablist" aria-label="Resume editor sections" style={{ display: 'flex', padding: '10px 10px 8px', gap: 3, borderBottom: `1px solid ${cardBorder}`, flexShrink: 0, overflowX: 'auto' }}>
             {LEFT_TABS.map((t, i) => (
-              <button key={t} type="button" role="tab" aria-selected={activeTab === i} onClick={() => setActiveTab(i)} className="hov-tab" style={{ padding: '6px 12px', fontSize: 12, fontWeight: 500, borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s', background: activeTab === i ? '#1D9E75' : 'transparent', color: activeTab === i ? '#fff' : textSec, whiteSpace: 'nowrap' }}>
+              <button key={t} type="button" role="tab" aria-selected={activeTab === i} onClick={() => setActiveTab(i)} className="hov-tab" style={{ padding: '6px 12px', fontSize: 12, fontWeight: 500, borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s', background: activeTab === i ? '#1D4ED8' : 'transparent', color: activeTab === i ? '#fff' : textSec, whiteSpace: 'nowrap' }}>
                 {t}
               </button>
             ))}
@@ -761,9 +900,9 @@ export default function Home() {
                     </div>
                   </div>
                 )}
-                <label style={lbl}>Full name <span style={{ color: '#1D9E75' }}>*</span></label>
+                <label style={lbl}>Full name <span style={{ color: '#1D4ED8' }}>*</span></label>
                 <input style={inp} aria-label="Full name" placeholder="Jane Smith" value={form.name} onChange={e => setF('name', e.target.value)} />
-                <label style={lbl}>Job title <span style={{ color: '#1D9E75' }}>*</span></label>
+                <label style={lbl}>Job title <span style={{ color: '#1D4ED8' }}>*</span></label>
                 <input style={inp} aria-label="Job title" placeholder="Senior Product Manager" value={form.title} onChange={e => setF('title', e.target.value)} />
                 <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                   <div><label style={lbl}>Email</label><input style={inp} aria-label="Email" type="email" placeholder="jane@email.com" value={form.email} onChange={e => setF('email', e.target.value)} /></div>
@@ -808,7 +947,7 @@ export default function Home() {
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
                         <label style={{ ...lbl, marginTop: 0, marginBottom: 0 }}>Key achievements <span style={{ color: textMuted, fontWeight: 400 }}>— one per line</span></label>
                         {isPro && (
-                          <button onClick={() => improveBullet(i)} disabled={improvingIdx === `${i}-0` || !exp.desc.trim()} style={{ fontSize: 11, padding: '3px 9px', borderRadius: 7, border: `1px solid rgba(29,158,117,0.4)`, background: 'transparent', color: '#1D9E75', cursor: !exp.desc.trim() ? 'not-allowed' : 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 4, opacity: !exp.desc.trim() ? 0.5 : 1 }}>
+                          <button onClick={() => improveBullet(i)} disabled={improvingIdx === `${i}-0` || !exp.desc.trim()} style={{ fontSize: 11, padding: '3px 9px', borderRadius: 7, border: `1px solid rgba(29,78,216,0.4)`, background: 'transparent', color: '#1D4ED8', cursor: !exp.desc.trim() ? 'not-allowed' : 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 4, opacity: !exp.desc.trim() ? 0.5 : 1 }}>
                             {improvingIdx === `${i}-0` ? <Spin sm /> : '✦'} AI
                           </button>
                         )}
@@ -824,7 +963,7 @@ export default function Home() {
                     </div>
                   </div>
                 ))}
-                <button onClick={addExp} className="hov-teal" style={{ fontSize: 13, border: `1px solid rgba(29,158,117,0.4)`, borderRadius: 12, padding: '8px 16px', color: '#1D9E75', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6, transition: 'background 0.15s' }}>
+                <button onClick={addExp} className="hov-teal" style={{ fontSize: 13, border: `1px solid rgba(29,78,216,0.4)`, borderRadius: 12, padding: '8px 16px', color: '#1D4ED8', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6, transition: 'background 0.15s' }}>
                   <span style={{ fontSize: 16 }}>+</span> Add position
                 </button>
               </div>
@@ -848,7 +987,7 @@ export default function Home() {
                     </div>
                   </div>
                 ))}
-                <button onClick={addEdu} className="hov-teal" style={{ fontSize: 13, border: `1px solid rgba(29,158,117,0.4)`, borderRadius: 12, padding: '8px 16px', color: '#1D9E75', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <button onClick={addEdu} className="hov-teal" style={{ fontSize: 13, border: `1px solid rgba(29,78,216,0.4)`, borderRadius: 12, padding: '8px 16px', color: '#1D4ED8', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span style={{ fontSize: 16 }}>+</span> Add education
                 </button>
               </div>
@@ -887,10 +1026,10 @@ export default function Home() {
 
           {/* Buttons */}
           <div style={{ padding: '12px 14px', borderTop: `1px solid ${cardBorder}`, display: 'flex', flexDirection: 'column', gap: 7, flexShrink: 0, background: cardBg }}>
-            <button onClick={() => requirePro(generateResume)} disabled={loading} style={{ width: '100%', padding: '10px 0', borderRadius: 11, border: 'none', background: loading ? '#5DCAA5' : '#1D9E75', color: '#fff', fontSize: 13, fontWeight: 500, cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: loading ? 0.8 : 1, transition: 'background 0.15s', fontFamily: 'inherit' }}>
+            <button onClick={() => requirePro(generateResume)} disabled={loading} style={{ width: '100%', padding: '10px 0', borderRadius: 11, border: 'none', background: loading ? '#93C5FD' : '#1D4ED8', color: '#fff', fontSize: 13, fontWeight: 500, cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: loading ? 0.8 : 1, transition: 'background 0.15s', fontFamily: 'inherit' }}>
               {loading ? <><Spinner light /> Generating…</> : isPro ? '✦ Enhance with AI' : '🔒 Enhance with AI (Pro)'}
             </button>
-            <button onClick={() => setRightPanel('cover')} style={{ width: '100%', padding: '8px 0', borderRadius: 11, border: `1px solid rgba(29,158,117,0.5)`, background: 'transparent', color: '#1D9E75', fontSize: 13, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, transition: 'all 0.15s', fontFamily: 'inherit' }}>
+            <button onClick={() => setRightPanel('cover')} style={{ width: '100%', padding: '8px 0', borderRadius: 11, border: `1px solid rgba(29,78,216,0.5)`, background: 'transparent', color: '#1D4ED8', fontSize: 13, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, transition: 'all 0.15s', fontFamily: 'inherit' }}>
               ✉ Cover letter tools
             </button>
             <button onClick={clearAll} style={{ width: '100%', padding: '7px 0', borderRadius: 11, border: `1px solid ${cardBorder}`, background: 'transparent', color: textMuted, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
@@ -900,15 +1039,31 @@ export default function Home() {
         </div>
 
         {/* ══ RIGHT PANEL ══ */}
-        <div className="right-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: bg }}>
-          <div className="right-toolbar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 14px', borderBottom: `1px solid ${cardBorder}`, background: cardBg, flexShrink: 0, gap: 6, flexWrap: 'wrap' }}>
+        <div className="right-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowX: 'visible', overflowY: 'hidden', background: bg }}>
+          <div
+            className="right-toolbar"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '8px 14px',
+              borderBottom: `1px solid ${cardBorder}`,
+              background: cardBg,
+              flexShrink: 0,
+              gap: 6,
+              flexWrap: 'wrap',
+              overflow: 'visible',
+              position: 'relative',
+              zIndex: 1000
+            }}
+          >
             <div className="panel-tabs" role="tablist" aria-label="Resume workspace panels" style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
               {RIGHT_PANELS.map(p => {
                 const locked = !isPro && p.id !== 'preview' && p.id !== 'coach' && p.id !== 'saved';
                 const isActive = rightPanel === p.id;
                 return (
                   <button key={p.id} type="button" role="tab" aria-selected={isActive} aria-disabled={locked} onClick={() => locked ? setShowUpgrade(true) : setRightPanel(p.id)} className="hov-tab"
-                    style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', fontSize: 12, fontWeight: 500, borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s', background: isActive ? '#1D9E75' : 'transparent', color: isActive ? '#fff' : textSec, opacity: locked ? 0.6 : 1, position: 'relative' }}>
+                    style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', fontSize: 12, fontWeight: 500, borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s', background: isActive ? '#1D4ED8' : 'transparent', color: isActive ? '#fff' : textSec, opacity: locked ? 0.6 : 1, position: 'relative' }}>
                     <span style={{ fontSize: 11 }}>{locked ? '🔒' : p.icon}</span>
                     {p.label}
                     {/* ATS score badge on the ATS tab */}
@@ -918,7 +1073,7 @@ export default function Home() {
                       </span>
                     )}
                     {p.id === 'coach' && !locked && (
-                      <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 99, background: isActive ? 'rgba(255,255,255,0.25)' : coachInsights.exportReady ? '#1D9E75' : '#fbbf24', color: '#fff', marginLeft: 2 }}>
+                      <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 99, background: isActive ? 'rgba(255,255,255,0.25)' : coachInsights.exportReady ? '#1D4ED8' : '#fbbf24', color: '#fff', marginLeft: 2 }}>
                         {coachInsights.score}
                       </span>
                     )}
@@ -928,53 +1083,118 @@ export default function Home() {
             </div>
 
             {rightPanel === 'preview' && (
-              <div className="preview-actions" style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+              <div
+                className="preview-actions"
+                style={{
+                  display: 'flex',
+                  gap: 5,
+                  alignItems: 'center',
+
+                  position: 'relative',
+                  zIndex: 9999
+                }}
+              >
                 <button onClick={() => setRightPanel('coach')} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', fontSize: 12, fontWeight: 600, borderRadius: 9, border: `1px solid ${cardBorder}`, background: subtleBg, color: a4FitColor, cursor: 'pointer', fontFamily: 'inherit' }}>
                   A4 {coachInsights.a4Fit.label}
                 </button>
-                <div style={{ position: 'relative' }}>
-                  <button onClick={() => setShowTemplates(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', fontSize: 12, fontWeight: 500, borderRadius: 9, border: `1px solid ${cardBorder}`, background: subtleBg, color: textSec, cursor: 'pointer', fontFamily: 'inherit' }}>
-                    🎨 {TEMPLATES.find(t => t.id === template)?.label} ▾
+                <div style={{ flexShrink: 0 }}>
+                  <button
+                    ref={templateButtonRef}
+                    type="button"
+                    aria-haspopup="menu"
+                    aria-expanded={showTemplates}
+                    onClick={() => { closeExport(); setShowTemplates(o => !o); }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', fontSize: 12, fontWeight: 500, borderRadius: 9, border: `1px solid ${cardBorder}`, background: subtleBg, color: textSec, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
+                  >
+                    Templates: {TEMPLATES.find(t => t.id === template)?.label} ▾
                   </button>
-                  {showTemplates && (
-                    <>
-                      <div style={{ position: 'fixed', inset: 0, zIndex: 10 }} onClick={() => setShowTemplates(false)} />
-                      <div style={{ position: 'absolute', right: 0, top: '100%', marginTop: 6, zIndex: 20, background: cardBg, border: `1px solid ${cardBorder}`, borderRadius: 14, boxShadow: '0 10px 40px rgba(0,0,0,0.2)', width: 190, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                        {TEMPLATES.map(t => (
-                          <button key={t.id} onClick={() => { setTemplate(t.id); setShowTemplates(false); }} style={{ width: '100%', textAlign: 'left', padding: '10px 14px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 9, background: template === t.id ? 'rgba(29,158,117,0.08)' : 'transparent', color: textPrimary, cursor: 'pointer', fontFamily: 'inherit', border: 'none', borderBottom: `1px solid ${cardBorder}` }}>
-                            <div style={{ width: 7, height: 7, borderRadius: '50%', background: t.color, flexShrink: 0 }} />
-                            <div>
-                              <p style={{ margin: 0, fontWeight: 600, fontSize: 11, color: template === t.id ? '#1D9E75' : textPrimary }}>{t.label} {template === t.id ? '✓' : ''}</p>
-                              <p style={{ margin: 0, fontSize: 9, color: textMuted }}>{t.desc}</p>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  )}
+                  <FloatingMenu open={showTemplates} anchorRef={templateButtonRef} onClose={closeTemplates} surface={cardBg} border={cardBorder} label="Resume templates" width={216}>
+                    {TEMPLATES.map(t => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={template === t.id}
+                        onClick={() => { setTemplate(t.id); closeTemplates(); }}
+                        className="hov-row"
+                        style={{ width: '100%', textAlign: 'left', padding: '10px 12px', borderRadius: 8, fontSize: 12, display: 'flex', alignItems: 'center', gap: 9, background: template === t.id ? 'rgba(29,78,216,0.10)' : 'transparent', color: textPrimary, cursor: 'pointer', fontFamily: 'inherit', border: 'none' }}
+                      >
+                        <div style={{ width: 7, height: 7, borderRadius: '50%', background: t.color, flexShrink: 0 }} />
+                        <div style={{ minWidth: 0 }}>
+                          <p style={{ margin: 0, fontWeight: 700, fontSize: 11, color: template === t.id ? BRAND.blue : textPrimary }}>{t.label} {template === t.id ? '✓' : ''}</p>
+                          <p style={{ margin: 0, fontSize: 9, color: textMuted }}>{t.desc}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </FloatingMenu>
                 </div>
                 <button onClick={() => setShowPrintView(true)} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', fontSize: 12, fontWeight: 500, borderRadius: 9, border: `1px solid ${cardBorder}`, background: subtleBg, color: textSec, cursor: 'pointer', fontFamily: 'inherit' }}>🖨</button>
-                <div style={{ position: 'relative', flexShrink: 0 }}>
-                  <button onClick={() => setExportOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', fontSize: 12, fontWeight: 500, borderRadius: 9, border: 'none', background: '#1D9E75', color: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>↓ Export ▾</button>
-                  {exportOpen && (
-                    <>
-                      <div style={{ position: 'fixed', inset: 0, zIndex: 10 }} onClick={() => setExportOpen(false)} />
-                      <div style={{ position: 'absolute', right: 0, top: '100%', marginTop: 6, zIndex: 20, background: cardBg, border: `1px solid ${cardBorder}`, borderRadius: 14, boxShadow: '0 10px 40px rgba(0,0,0,0.3)', overflow: 'hidden', width: 200 }}>
-                        {[
-                          { label: 'Download PDF', action: () => { downloadPDF('resume-output', `${liveResume.name}_resume.pdf`); setExportOpen(false); } },
-                          { label: 'Download Word (.docx)', action: () => { downloadDOCX(liveResume); setExportOpen(false); } },
-                          { label: 'Download HTML', action: () => { downloadHTML(liveResume); setExportOpen(false); } },
-                          { label: copyDone ? 'Copied!' : 'Copy as text', action: () => { handleCopy(); setExportOpen(false); } },
-                          { label: 'Backup editable project', action: exportBackup },
-                          { label: 'Import backup', action: () => { backupInputRef.current?.click(); setExportOpen(false); } },
-                        ].map(item => (
-                          <button key={item.label} onClick={item.action} className="hov-row" style={{ width: '100%', textAlign: 'left', padding: '10px 14px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 9, background: 'transparent', color: textPrimary, cursor: 'pointer', fontFamily: 'inherit', border: 'none', borderBottom: `1px solid ${cardBorder}`, transition: 'background 0.1s' }}>
-                            {item.label}
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  )}
+                <div style={{ flexShrink: 0 }}>
+                  <button
+                    ref={exportButtonRef}
+                    type="button"
+                    aria-haspopup="menu"
+                    aria-expanded={exportOpen}
+                    onClick={() => { closeTemplates(); setExportOpen(o => !o); }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', fontSize: 12, fontWeight: 600, borderRadius: 9, border: 'none', background: BRAND.blue, color: '#fff', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
+                  >
+                    Export ▾
+                  </button>
+                  <FloatingMenu open={exportOpen} anchorRef={exportButtonRef} onClose={closeExport} surface={cardBg} border={cardBorder} label="Export options" width={220}>
+                    {[
+                      {
+                        label: 'Download PDF',
+                        action: () => {
+                          const safeName = (liveResume.name || 'resume').replace(/\s+/g, '_');
+                          downloadPDF('resume-output', `${safeName}_resume.pdf`);
+                          closeExport();
+                        },
+                      },
+                      {
+                        label: 'Download Word (.docx)',
+                        action: () => {
+                          downloadDOCX(liveResume);
+                          closeExport();
+                        },
+                      },
+                      {
+                        label: 'Download HTML',
+                        action: () => {
+                          downloadHTML(liveResume);
+                          closeExport();
+                        },
+                      },
+                      {
+                        label: copyDone ? 'Copied!' : 'Copy as text',
+                        action: () => {
+                          handleCopy();
+                          closeExport();
+                        },
+                      },
+                      {
+                        label: 'Backup editable project',
+                        action: exportBackup,
+                      },
+                      {
+                        label: 'Import backup',
+                        action: () => {
+                          backupInputRef.current?.click();
+                          closeExport();
+                        },
+                      },
+                    ].map(item => (
+                      <button
+                        key={item.label}
+                        type="button"
+                        role="menuitem"
+                        onClick={item.action}
+                        className="hov-row"
+                        style={{ width: '100%', textAlign: 'left', padding: '10px 12px', border: 'none', borderRadius: 8, background: 'transparent', cursor: 'pointer', color: textPrimary, fontSize: 12, fontFamily: 'inherit' }}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </FloatingMenu>
                 </div>
               </div>
             )}
@@ -1001,17 +1221,17 @@ export default function Home() {
         <>
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 100 }} onClick={() => setShowUpgrade(false)} />
           <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 101, background: cardBg, borderRadius: 24, padding: '36px 32px', width: 420, maxWidth: '90vw', textAlign: 'center', boxShadow: '0 24px 60px rgba(0,0,0,0.4)', animation: 'modalIn 0.2s ease', border: `1px solid ${cardBorder}` }}>
-            <div style={{ width: 52, height: 52, borderRadius: 16, background: 'rgba(29,158,117,0.12)', border: '1px solid rgba(29,158,117,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontSize: 22 }}>✦</div>
+            <div style={{ width: 52, height: 52, borderRadius: 16, background: 'rgba(29,78,216,0.12)', border: '1px solid rgba(29,78,216,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontSize: 22 }}>✦</div>
             <h2 style={{ margin: '0 0 8px', fontSize: 20, fontWeight: 700, color: textPrimary }}>Upgrade to Pro</h2>
             <p style={{ color: textSec, fontSize: 13, marginBottom: 24, lineHeight: 1.6 }}>Manual resume building and saving is always free. Unlock AI features with Pro.</p>
             <div style={{ textAlign: 'left', background: D ? '#111827' : '#f9fafb', borderRadius: 14, padding: '16px 20px', marginBottom: 24, border: `1px solid ${cardBorder}` }}>
               {['✦ AI-written bullet points', '✦ AI improve single bullets', '🎯 Tailor resume to any job', '✉ Cover letter generator', '⚡ ATS score analysis', '🔗 LinkedIn About writer'].map(f => (
                 <div key={f} style={{ fontSize: 13, color: textSec, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ color: '#1D9E75' }}>✓</span> {f}
+                  <span style={{ color: '#1D4ED8' }}>✓</span> {f}
                 </div>
               ))}
             </div>
-            <button onClick={handleUpgrade} style={{ width: '100%', padding: '13px 0', background: '#1D9E75', color: '#fff', border: 'none', borderRadius: 14, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 10 }}>Upgrade — $9 / month</button>
+            <button onClick={handleUpgrade} style={{ width: '100%', padding: '13px 0', background: '#1D4ED8', color: '#fff', border: 'none', borderRadius: 14, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 10 }}>Upgrade — $9 / month</button>
             <button onClick={() => setShowUpgrade(false)} style={{ background: 'none', border: 'none', color: textMuted, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Maybe later</button>
           </div>
         </>
@@ -1024,10 +1244,10 @@ export default function Home() {
           <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 101, background: cardBg, borderRadius: 24, padding: '36px 32px', width: 400, maxWidth: '90vw', textAlign: 'center', boxShadow: '0 24px 60px rgba(0,0,0,0.4)', animation: 'modalIn 0.2s ease', border: `1px solid ${cardBorder}` }}>
             <div style={{ fontSize: 36, marginBottom: 12 }}>🎁</div>
             <h2 style={{ margin: '0 0 8px', fontSize: 20, fontWeight: 700, color: textPrimary }}>Refer a Friend</h2>
-            <p style={{ color: textSec, fontSize: 13, marginBottom: 24, lineHeight: 1.6 }}>Share AnantaCV with a friend. When they sign up using your link, both of you get 1 month Pro free.</p>
+            <p style={{ color: textSec, fontSize: 13, marginBottom: 24, lineHeight: 1.6 }}>Share NepAstra with a friend. When they sign up using your link, both of you get 1 month Pro free.</p>
             <div style={{ background: D ? '#111827' : '#f3f4f6', borderRadius: 12, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ flex: 1, fontSize: 12, color: textSec, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'left' }}>{referralLink}</span>
-              <button onClick={copyReferral} style={{ flexShrink: 0, padding: '6px 14px', background: referralCopied ? '#1D9E75' : cardBg, color: referralCopied ? '#fff' : textSec, border: `1px solid ${cardBorder}`, borderRadius: 8, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}>
+              <button onClick={copyReferral} style={{ flexShrink: 0, padding: '6px 14px', background: referralCopied ? '#1D4ED8' : cardBg, color: referralCopied ? '#fff' : textSec, border: `1px solid ${cardBorder}`, borderRadius: 8, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}>
                 {referralCopied ? '✓ Copied!' : 'Copy'}
               </button>
             </div>
@@ -1035,17 +1255,17 @@ export default function Home() {
           </div>
         </>
       )}
-    </div>
+    </main>
   );
 }
 
 function Spinner({ light }: { light?: boolean }) {
-  return <span style={{ display: 'inline-block', width: 14, height: 14, borderRadius: '50%', border: '2px solid', borderColor: light ? 'rgba(255,255,255,0.3)' : '#e5e7eb', borderTopColor: light ? '#fff' : '#1D9E75', animation: 'spin 0.7s linear infinite', flexShrink: 0 }} />;
+  return <span style={{ display: 'inline-block', width: 14, height: 14, borderRadius: '50%', border: '2px solid', borderColor: light ? 'rgba(255,255,255,0.3)' : '#e5e7eb', borderTopColor: light ? '#fff' : '#1D4ED8', animation: 'spin 0.7s linear infinite', flexShrink: 0 }} />;
 }
 
 function Spin({ sm }: { sm?: boolean }) {
   const s = sm ? 10 : 14;
-  return <span style={{ display: 'inline-block', width: s, height: s, borderRadius: '50%', border: '2px solid rgba(29,158,117,0.3)', borderTopColor: '#1D9E75', animation: 'spin 0.7s linear infinite', flexShrink: 0 }} />;
+  return <span style={{ display: 'inline-block', width: s, height: s, borderRadius: '50%', border: '2px solid rgba(29,78,216,0.3)', borderTopColor: '#1D4ED8', animation: 'spin 0.7s linear infinite', flexShrink: 0 }} />;
 }
 
 function SignInPrompt({ textPrimary, textSec, onSignIn }: { textPrimary: string; textSec: string; onSignIn: () => void }) {
@@ -1054,7 +1274,7 @@ function SignInPrompt({ textPrimary, textSec, onSignIn }: { textPrimary: string;
       <div style={{ fontSize: 40, marginBottom: 16 }}>💾</div>
       <p style={{ fontSize: 15, fontWeight: 600, color: textPrimary, marginBottom: 8 }}>Sign in to save your CVs</p>
       <p style={{ fontSize: 13, color: textSec, marginBottom: 20, lineHeight: 1.6 }}>Create a free account to save and access your CVs from anywhere.</p>
-      <button onClick={onSignIn} style={{ padding: '10px 24px', background: '#1D9E75', color: '#fff', border: 'none', borderRadius: 12, fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>Sign in / Sign up</button>
+      <button onClick={onSignIn} style={{ padding: '10px 24px', background: '#1D4ED8', color: '#fff', border: 'none', borderRadius: 12, fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>Sign in / Sign up</button>
     </div>
   );
 }

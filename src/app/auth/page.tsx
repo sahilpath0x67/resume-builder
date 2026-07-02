@@ -39,6 +39,8 @@ const FEATURES = [
   { icon: '💾', text: 'Save unlimited CVs' },
 ];
 
+const BRAND_LOGO = '/nepastra-logo.jpeg';
+
 // ─────────────────────────────────────────────────────────────────────────────
 export default function AuthPage() {
   const [tab, setTab] = useState<'signin' | 'signup'>('signin');
@@ -111,7 +113,7 @@ export default function AuthPage() {
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
-        input:focus { border-color: #1D9E75 !important; box-shadow: 0 0 0 3px rgba(29,158,117,0.15) !important; }
+        input:focus { border-color: #1D4ED8 !important; box-shadow: 0 0 0 3px rgba(29,78,216,0.15) !important; }
         * { box-sizing: border-box; }
       `}</style>
 
@@ -147,19 +149,23 @@ export default function AuthPage() {
           ✕
         </button>
         {/* ── LEFT SIDEBAR ── */}
-        <aside className="auth-sidebar" style={{ width: 320, flexShrink: 0, background: 'linear-gradient(160deg, #0F6E56 0%, #064e3b 100%)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '2.5rem 2rem' }}>
+        <aside className="auth-sidebar" style={{ width: 320, flexShrink: 0, background: 'linear-gradient(160deg, #172554 0%, #1E3A8A 52%, #7F1D1D 100%)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '2.5rem 2rem' }}>
           <div>
             {/* Logo */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: '2.5rem' }}>
-              <div style={{ width: 38, height: 38, borderRadius: 11, background: '#1D9E75', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 16, flexShrink: 0, boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>R</div>
-              <span style={{ color: '#9FE1CB', fontSize: 14, fontWeight: 600 }}>AI Resume Builder</span>
+              <div style={{ width: 64, height: 40, borderRadius: 10, background: '#fff', border: '1px solid rgba(255,255,255,0.42)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 8px 24px rgba(0,0,0,0.22)' }}>
+                <img src={BRAND_LOGO} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scale(1.24)' }} />
+              </div>
+              <span style={{ color: '#DBEAFE', fontSize: 14, fontWeight: 700 }}>
+                <span style={{ color: '#FCA5A5' }}>Nep</span><span style={{ color: '#DBEAFE' }}>Astra</span>
+              </span>
             </div>
 
             <h2 style={{ color: '#fff', fontSize: 22, fontWeight: 600, lineHeight: 1.4, marginBottom: 10, marginTop: 0 }}>
               Build resumes that<br />get interviews
             </h2>
-            <p style={{ color: '#5DCAA5', fontSize: 13, lineHeight: 1.7, margin: '0 0 2rem' }}>
-              AI-powered writing, ATS scoring, cover letters, and LinkedIn bios — all in one place.
+            <p style={{ color: '#93C5FD', fontSize: 13, lineHeight: 1.7, margin: '0 0 2rem' }}>
+              AI-powered writing, ATS scoring, cover letters, and LinkedIn bios from NepAstra in one focused workspace.
             </p>
 
             {/* Features */}
@@ -167,7 +173,7 @@ export default function AuthPage() {
               {FEATURES.map(f => (
                 <div key={f.text} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0 }}>{f.icon}</div>
-                  <span style={{ color: '#9FE1CB', fontSize: 13 }}>{f.text}</span>
+                  <span style={{ color: '#DBEAFE', fontSize: 13 }}>{f.text}</span>
                 </div>
               ))}
             </div>
@@ -175,14 +181,14 @@ export default function AuthPage() {
 
           {/* Bottom note */}
           <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: 20, marginTop: 24 }}>
-            <p style={{ color: '#5DCAA5', fontSize: 12, margin: 0, lineHeight: 1.6 }}>
+            <p style={{ color: '#93C5FD', fontSize: 12, margin: 0, lineHeight: 1.6 }}>
               🔒 Your data is encrypted and saved securely. Free to use — Pro features unlock AI writing.
             </p>
           </div>
         </aside>
 
         {/* ── RIGHT — FORM ── */}
-        <main className="auth-main" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', background: '#f9fafb' }}>
+        <main id="main-content" className="auth-main" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', background: '#f9fafb' }}>
           <div style={{ width: '100%', maxWidth: 400, animation: 'fadeUp 0.3s ease' }}>
 
             {/* Welcome text */}
@@ -204,7 +210,7 @@ export default function AuthPage() {
               {!forgotMode && (
                 <div style={{ display: 'flex', borderRadius: 12, overflow: 'hidden', border: '1px solid #e5e7eb', marginBottom: 24 }}>
                   {(['signin', 'signup'] as const).map((t, i) => (
-                    <button key={t} type="button" onClick={() => switchTab(t)} disabled={isLoading} style={{ flex: 1, padding: '9px 0', fontSize: 13, fontWeight: 500, border: 'none', cursor: isLoading ? 'not-allowed' : 'pointer', transition: 'all 0.15s', background: tab === t ? '#1D9E75' : 'transparent', color: tab === t ? '#fff' : '#6b7280', opacity: isLoading ? 0.6 : 1, fontFamily: 'inherit' }}>
+                    <button key={t} type="button" onClick={() => switchTab(t)} disabled={isLoading} style={{ flex: 1, padding: '9px 0', fontSize: 13, fontWeight: 500, border: 'none', cursor: isLoading ? 'not-allowed' : 'pointer', transition: 'all 0.15s', background: tab === t ? '#1D4ED8' : 'transparent', color: tab === t ? '#fff' : '#6b7280', opacity: isLoading ? 0.6 : 1, fontFamily: 'inherit' }}>
                       {i === 0 ? 'Sign in' : 'Create account'}
                     </button>
                   ))}
@@ -246,12 +252,12 @@ export default function AuthPage() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                       <label htmlFor="auth-password" style={{ fontSize: 12, fontWeight: 500, color: '#6b7280' }}>Password</label>
                       {tab === 'signin' && (
-                        <button type="button" onClick={() => { setForgotMode(true); setError(''); setSuccess(''); }} style={{ fontSize: 11, color: '#1D9E75', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>
+                        <button type="button" onClick={() => { setForgotMode(true); setError(''); setSuccess(''); }} style={{ fontSize: 11, color: '#1D4ED8', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>
                           Forgot password?
                         </button>
                       )}
                     </div>
-                    <div style={{ position: 'relative' }}>
+                    <div style={{ position: 'relative',zIndex: 9999 }}>
                       <input type={showPass ? 'text' : 'password'} placeholder={tab === 'signin' ? '••••••••' : 'Min. 8 characters'} value={password} onChange={e => setPassword(e.target.value)} disabled={isLoading} required minLength={tab === 'signup' ? 8 : undefined} style={{ ...inp, paddingRight: 44 }} />
                       <button type="button" onClick={() => setShowPass(s => !s)} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 13, padding: 0 }}>
                         {showPass ? '🙈' : '👁'}
@@ -261,7 +267,7 @@ export default function AuthPage() {
                   </div>
                 )}
 
-                <button type="submit" disabled={isLoading} style={{ width: '100%', padding: '11px 0', borderRadius: 12, border: 'none', background: loading ? '#5DCAA5' : '#1D9E75', color: '#fff', fontSize: 13, fontWeight: 500, cursor: isLoading ? 'not-allowed' : 'pointer', opacity: isLoading ? 0.8 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, transition: 'background 0.15s', fontFamily: 'inherit' }}>
+                <button type="submit" disabled={isLoading} style={{ width: '100%', padding: '11px 0', borderRadius: 12, border: 'none', background: loading ? '#93C5FD' : '#1D4ED8', color: '#fff', fontSize: 13, fontWeight: 500, cursor: isLoading ? 'not-allowed' : 'pointer', opacity: isLoading ? 0.8 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, transition: 'background 0.15s', fontFamily: 'inherit' }}>
                   {loading ? (
                     <><Spin light />{forgotMode ? 'Sending…' : tab === 'signin' ? 'Signing in…' : 'Creating account…'}</>
                   ) : (
@@ -295,7 +301,7 @@ export default function AuthPage() {
               {!forgotMode && (
                 <p style={{ textAlign: 'center', fontSize: 12, color: '#6b7280', marginTop: 20, marginBottom: 0 }}>
                   {tab === 'signin' ? "Don't have an account? " : 'Already have an account? '}
-                  <button type="button" onClick={() => switchTab(tab === 'signin' ? 'signup' : 'signin')} disabled={isLoading} style={{ background: 'none', border: 'none', color: '#0F6E56', fontWeight: 600, fontSize: 12, cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>
+                  <button type="button" onClick={() => switchTab(tab === 'signin' ? 'signup' : 'signin')} disabled={isLoading} style={{ background: 'none', border: 'none', color: '#1E3A8A', fontWeight: 600, fontSize: 12, cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>
                     {tab === 'signin' ? 'Sign up free' : 'Sign in'}
                   </button>
                 </p>
@@ -314,7 +320,7 @@ export default function AuthPage() {
 }
 
 function Spin({ light }: { light?: boolean }) {
-  return <span style={{ display: 'inline-block', width: 14, height: 14, borderRadius: '50%', border: '2px solid', borderColor: light ? 'rgba(255,255,255,0.3)' : '#e5e7eb', borderTopColor: light ? '#fff' : '#1D9E75', animation: 'spin 0.7s linear infinite', flexShrink: 0 }} />;
+  return <span style={{ display: 'inline-block', width: 14, height: 14, borderRadius: '50%', border: '2px solid', borderColor: light ? 'rgba(255,255,255,0.3)' : '#e5e7eb', borderTopColor: light ? '#fff' : '#1D4ED8', animation: 'spin 0.7s linear infinite', flexShrink: 0 }} />;
 }
 
 function GoogleIcon() {

@@ -113,8 +113,8 @@ export default function LinkedInPanel({
           {/* Resume status badge */}
           <div style={{
             fontSize: 11, fontWeight: 500, padding: '4px 10px', borderRadius: 99,
-            background: resume ? '#d1fae5' : D ? '#3b1e06' : '#fef3c7',
-            color: resume ? '#065f46' : D ? '#fbbf24' : '#92400e',
+            background: resume ? '#DBEAFE' : D ? '#3b1e06' : '#fef3c7',
+            color: resume ? '#1E3A8A' : D ? '#fbbf24' : '#92400e',
             flexShrink: 0,
           }}>
             {resume ? '✓ Resume ready' : '⚠ Fill resume first'}

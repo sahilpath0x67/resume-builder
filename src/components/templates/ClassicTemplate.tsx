@@ -5,8 +5,8 @@ export default function ClassicTemplate({ resume, dark: D }: { resume: ResumeOut
   const textC     = D ? '#f3f4f6' : '#111827';
   const textMuted = D ? '#9ca3af' : '#6b7280';
   const borderCol = D ? '#374151' : '#e5e7eb';
-  const skillBg   = D ? '#064e3b' : '#E1F5EE';
-  const skillText = D ? '#6ee7b7' : '#0F6E56';
+  const skillBg   = D ? '#172554' : '#DBEAFE';
+  const skillText = D ? '#BFDBFE' : '#1E3A8A';
 
   return (
     <div id="resume-output" style={{
@@ -17,14 +17,14 @@ export default function ClassicTemplate({ resume, dark: D }: { resume: ResumeOut
     }}>
       <div style={{ marginBottom: 22 }}>
         <h1 style={{ fontSize: 30, fontWeight: 700, fontFamily: 'Inter, sans-serif', color: textC, margin: '0 0 3px' }}>{resume.name}</h1>
-        {resume.title && <p style={{ fontSize: 14, fontWeight: 600, color: '#1D9E75', fontFamily: 'Inter, sans-serif', margin: '0 0 8px' }}>{resume.title}</p>}
+        {resume.title && <p style={{ fontSize: 14, fontWeight: 600, color: '#1D4ED8', fontFamily: 'Inter, sans-serif', margin: '0 0 8px' }}>{resume.title}</p>}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px', fontSize: 12, color: textMuted, fontFamily: 'Inter, sans-serif' }}>
           {resume.email    && <span>✉ {resume.email}</span>}
           {resume.phone    && <span>📞 {resume.phone}</span>}
           {resume.location && <span>📍 {resume.location}</span>}
-          {resume.linkedin && <span style={{ color: '#1D9E75' }}>🔗 {resume.linkedin}</span>}
+          {resume.linkedin && <span style={{ color: '#1D4ED8' }}>🔗 {resume.linkedin}</span>}
         </div>
-        <div style={{ height: 2, background: '#1D9E75', marginTop: 14, borderRadius: 1 }} />
+        <div style={{ height: 2, background: '#1D4ED8', marginTop: 14, borderRadius: 1 }} />
       </div>
 
       {resume.summary && <Section title="Professional Summary" border={borderCol}><p style={{ fontSize: 13.3, lineHeight: 1.65, margin: 0, color: textC }}>{resume.summary}</p></Section>}
@@ -37,7 +37,7 @@ export default function ClassicTemplate({ resume, dark: D }: { resume: ResumeOut
                 <span style={{ fontWeight: 700, fontSize: 14, fontFamily: 'Inter, sans-serif', color: textC }}>{exp.company}</span>
                 <span style={{ fontSize: 11.5, color: textMuted, fontFamily: 'Inter, sans-serif' }}>{exp.period}</span>
               </div>
-              <div style={{ fontSize: 13, color: '#1D9E75', fontFamily: 'Inter, sans-serif', fontStyle: 'italic', marginBottom: 5 }}>{exp.role}</div>
+              <div style={{ fontSize: 13, color: '#1D4ED8', fontFamily: 'Inter, sans-serif', fontStyle: 'italic', marginBottom: 5 }}>{exp.role}</div>
               {exp.bullets?.length > 0 && <ul style={{ paddingLeft: '1.25em', margin: 0 }}>{exp.bullets.map((b, j) => <li key={j} style={{ fontSize: 13, marginBottom: 3, color: textC, lineHeight: 1.55 }}>{b}</li>)}</ul>}
             </div>
           ))}
@@ -90,7 +90,7 @@ export default function ClassicTemplate({ resume, dark: D }: { resume: ResumeOut
 function Section({ title, children, border }: { title: string; children: React.ReactNode; border: string }) {
   return (
     <div style={{ marginBottom: 18 }}>
-      <h2 style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: 0, textTransform: 'uppercase', color: '#1D9E75', fontFamily: 'Inter, sans-serif', margin: '0 0 8px', paddingBottom: 4, borderBottom: `1px solid ${border}` }}>{title}</h2>
+      <h2 style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: 0, textTransform: 'uppercase', color: '#1D4ED8', fontFamily: 'Inter, sans-serif', margin: '0 0 8px', paddingBottom: 4, borderBottom: `1px solid ${border}` }}>{title}</h2>
       {children}
     </div>
   );

@@ -11,8 +11,8 @@ export default function ResumePreview({
   const text      = D ? '#f3f4f6' : '#111827';
   const textMuted = D ? '#9ca3af' : '#6b7280';
   const borderCol = D ? '#374151' : '#e5e7eb';
-  const skillBg   = D ? '#064e3b' : '#E1F5EE';
-  const skillText = D ? '#6ee7b7' : '#0F6E56';
+  const skillBg   = D ? '#172554' : '#DBEAFE';
+  const skillText = D ? '#BFDBFE' : '#1E3A8A';
 
   return (
     <div
@@ -46,7 +46,7 @@ export default function ResumePreview({
 
         {resume.title && (
           <p style={{
-            fontSize: 14, fontWeight: 600, color: '#1D9E75',
+            fontSize: 14, fontWeight: 600, color: '#1D4ED8',
             fontFamily: 'Inter, -apple-system, sans-serif',
             margin: '0 0 8px',
           }}>
@@ -64,19 +64,19 @@ export default function ResumePreview({
           {resume.phone    && <span>📞 {resume.phone}</span>}
           {resume.location && <span>📍 {resume.location}</span>}
           {resume.linkedin && (
-            <span style={{ color: '#1D9E75' }}>🔗 {resume.linkedin}</span>
+            <span style={{ color: '#1D4ED8' }}>🔗 {resume.linkedin}</span>
           )}
           {/* Fallback: top-level fields (older API shape) */}
           {!resume.email    && resume.email    && <span>✉ {resume.email}</span>}
           {!resume.phone    && resume.phone    && <span>📞 {resume.phone}</span>}
           {!resume.location && resume.location && <span>📍 {resume.location}</span>}
           {!resume.linkedin && resume.linkedin && (
-            <span style={{ color: '#1D9E75' }}>🔗 {resume.linkedin}</span>
+            <span style={{ color: '#1D4ED8' }}>🔗 {resume.linkedin}</span>
           )}
         </div>
 
         {/* Accent rule */}
-        <div style={{ height: 2, background: '#1D9E75', marginTop: 14, borderRadius: 1 }} />
+        <div style={{ height: 2, background: '#1D4ED8', marginTop: 14, borderRadius: 1 }} />
       </div>
 
       {/* ── SUMMARY ── */}
@@ -112,7 +112,7 @@ export default function ResumePreview({
                 </span>
               </div>
               <div style={{
-                fontSize: 13, color: '#1D9E75',
+                fontSize: 13, color: '#1D4ED8',
                 fontFamily: 'Inter, -apple-system, sans-serif',
                 fontStyle: 'italic', marginBottom: 5,
               }}>
@@ -233,7 +233,7 @@ function Section({
         fontWeight: 800,
         letterSpacing: 0,
         textTransform: 'uppercase',
-        color: '#1D9E75',
+        color: '#1D4ED8',
         fontFamily: 'Inter, -apple-system, sans-serif',
         margin: '0 0 8px',
         paddingBottom: 4,

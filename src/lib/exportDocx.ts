@@ -12,14 +12,14 @@ import type { ResumeOutput } from './types';
 
 function rule() {
   return new Paragraph({
-    border: { bottom: { color: '1D9E75', size: 6, style: BorderStyle.SINGLE } },
+    border: { bottom: { color: '1D4ED8', size: 6, style: BorderStyle.SINGLE } },
     spacing: { after: 80 },
   });
 }
 
 function sectionTitle(text: string) {
   return new Paragraph({
-    children: [new TextRun({ text: text.toUpperCase(), bold: true, size: 18, color: '1D9E75', font: 'Calibri' })],
+    children: [new TextRun({ text: text.toUpperCase(), bold: true, size: 18, color: '1D4ED8', font: 'Calibri' })],
     spacing: { before: 200, after: 60 },
     border: { bottom: { color: 'E5E7EB', size: 4, style: BorderStyle.SINGLE } },
   });
@@ -55,7 +55,7 @@ export async function downloadDOCX(resume: ResumeOutput, filename?: string) {
         }),
         // ── TITLE ──
         ...(resume.title ? [new Paragraph({
-          children: [new TextRun({ text: resume.title, size: 24, color: '1D9E75', bold: true, font: 'Calibri' })],
+          children: [new TextRun({ text: resume.title, size: 24, color: '1D4ED8', bold: true, font: 'Calibri' })],
           spacing: { after: 80 },
         })] : []),
         // ── CONTACT ──
@@ -64,7 +64,7 @@ export async function downloadDOCX(resume: ResumeOutput, filename?: string) {
             resume.email    ? new TextRun({ text: resume.email,    size: 18, color: '6B7280', font: 'Calibri' }) : null,
             resume.phone    ? new TextRun({ text: `  |  ${resume.phone}`,    size: 18, color: '6B7280', font: 'Calibri' }) : null,
             resume.location ? new TextRun({ text: `  |  ${resume.location}`, size: 18, color: '6B7280', font: 'Calibri' }) : null,
-            resume.linkedin ? new TextRun({ text: `  |  ${resume.linkedin}`, size: 18, color: '1D9E75', font: 'Calibri' }) : null,
+            resume.linkedin ? new TextRun({ text: `  |  ${resume.linkedin}`, size: 18, color: '1D4ED8', font: 'Calibri' }) : null,
           ].filter(Boolean) as TextRun[],
           spacing: { after: 60 },
         }),
@@ -88,7 +88,7 @@ export async function downloadDOCX(resume: ResumeOutput, filename?: string) {
               spacing: { before: 120, after: 30 },
             }),
             new Paragraph({
-              children: [new TextRun({ text: exp.role, size: 20, color: '1D9E75', font: 'Calibri', italics: true })],
+              children: [new TextRun({ text: exp.role, size: 20, color: '1D4ED8', font: 'Calibri', italics: true })],
               spacing: { after: 60 },
             }),
             ...(exp.bullets || []).map(b => bullet(b)),

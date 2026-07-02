@@ -91,7 +91,7 @@ export default function MinimalTemplate({ resume, dark: D }: { resume: ResumeOut
 function MinSection({ title, children, border }: { title: string; children: React.ReactNode; border: string }) {
   return (
     <div style={{ marginBottom: 19 }}>
-      <h2 style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: 0, textTransform: 'uppercase', color: '#1D9E75', margin: '0 0 9px', paddingBottom: 5, borderBottom: `1px solid ${border}` }}>{title}</h2>
+      <h2 style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: 0, textTransform: 'uppercase', color: '#1D4ED8', margin: '0 0 9px', paddingBottom: 5, borderBottom: `1px solid ${border}` }}>{title}</h2>
       {children}
     </div>
   );
