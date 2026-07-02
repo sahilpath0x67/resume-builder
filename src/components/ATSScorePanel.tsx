@@ -190,12 +190,12 @@ export default function ATSScorePanel({
 
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 8, background: '#1D9E75', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 15, flexShrink: 0 }}>⚡</div>
+          <div style={{ width: 32, height: 32, borderRadius: 8, background: '#1D4ED8', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 15, flexShrink: 0 }}>⚡</div>
           <div style={{ flex: 1 }}>
             <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: text }}>ATS Score Analyzer</p>
             <p style={{ margin: 0, fontSize: 11, color: textMuted }}>Check how well your resume passes automated screening</p>
           </div>
-          <div style={{ fontSize: 11, fontWeight: 500, padding: '4px 10px', borderRadius: 99, flexShrink: 0, background: resume ? '#d1fae5' : D ? '#3b1e06' : '#fef3c7', color: resume ? '#065f46' : D ? '#fbbf24' : '#92400e' }}>
+          <div style={{ fontSize: 11, fontWeight: 500, padding: '4px 10px', borderRadius: 99, flexShrink: 0, background: resume ? '#DBEAFE' : D ? '#3b1e06' : '#fef3c7', color: resume ? '#1E3A8A' : D ? '#fbbf24' : '#92400e' }}>
             {resume ? '✓ Resume ready' : '⚠ Fill resume first'}
           </div>
         </div>
@@ -209,7 +209,7 @@ export default function ATSScorePanel({
             <button
               key={m.id}
               onClick={() => { setMode(m.id); setResult(null); setError(''); }}
-              style={{ flex: 1, padding: '10px 8px', border: 'none', cursor: 'pointer', fontFamily: 'inherit', background: mode === m.id ? '#1D9E75' : 'transparent', color: mode === m.id ? '#fff' : textMuted, transition: 'all 0.15s', textAlign: 'center' }}
+              style={{ flex: 1, padding: '10px 8px', border: 'none', cursor: 'pointer', fontFamily: 'inherit', background: mode === m.id ? '#1D4ED8' : 'transparent', color: mode === m.id ? '#fff' : textMuted, transition: 'all 0.15s', textAlign: 'center' }}
             >
               <p style={{ margin: 0, fontSize: 12, fontWeight: 600 }}>{m.label}</p>
               <p style={{ margin: 0, fontSize: 10, opacity: 0.8 }}>{m.desc}</p>
@@ -221,7 +221,7 @@ export default function ATSScorePanel({
         {mode === 'job' && (
           <div style={{ marginBottom: 14 }}>
             <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: textMuted, marginBottom: 6 }}>
-              Job description <span style={{ color: '#1D9E75' }}>*</span>
+              Job description <span style={{ color: '#1D4ED8' }}>*</span>
             </label>
             <textarea style={inp} rows={4} placeholder="Paste the full job description here for a tailored score…" value={jobDesc} onChange={e => setJobDesc(e.target.value)} />
           </div>
@@ -230,10 +230,10 @@ export default function ATSScorePanel({
         {/* General mode info */}
         {mode === 'general' && (
           <div style={{ background: bgSubtle, border: `1px solid ${borderSub}`, borderRadius: 10, padding: '12px 14px', marginBottom: 14 }}>
-            <p style={{ margin: '0 0 6px', fontSize: 11, fontWeight: 600, color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>What we check (instantly, no AI)</p>
+            <p style={{ margin: '0 0 6px', fontSize: 11, fontWeight: 600, color: textMuted, textTransform: 'uppercase', letterSpacing: 0 }}>What we check (instantly, no AI)</p>
             {['Contact info completeness', 'Action verbs in bullet points', 'Quantified achievements', 'Professional summary', 'Skills section', 'Resume length'].map(item => (
               <div key={item} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                <span style={{ color: '#1D9E75', fontSize: 10, flexShrink: 0 }}>✦</span>
+                <span style={{ color: '#1D4ED8', fontSize: 10, flexShrink: 0 }}>✦</span>
                 <span style={{ fontSize: 11, color: textMuted }}>{item}</span>
               </div>
             ))}
@@ -244,7 +244,7 @@ export default function ATSScorePanel({
         <button
           onClick={analyze}
           disabled={loading || !resume || (mode === 'job' && !jobDesc.trim())}
-          style={{ width: '100%', padding: '11px 0', borderRadius: 12, border: 'none', background: loading ? '#5DCAA5' : '#1D9E75', color: '#fff', fontSize: 13, fontWeight: 500, cursor: loading || !resume ? 'not-allowed' : 'pointer', opacity: !resume ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontFamily: 'inherit', transition: 'background 0.15s' }}
+          style={{ width: '100%', padding: '11px 0', borderRadius: 12, border: 'none', background: loading ? '#93C5FD' : '#1D4ED8', color: '#fff', fontSize: 13, fontWeight: 500, cursor: loading || !resume ? 'not-allowed' : 'pointer', opacity: !resume ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontFamily: 'inherit', transition: 'background 0.15s' }}
         >
           {loading ? <><Spin /> Analyzing…</> : mode === 'general' ? '⚡ Get General Score' : '🎯 Score Against Job'}
         </button>
@@ -269,7 +269,7 @@ export default function ATSScorePanel({
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                 <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: text }}>ATS Score</p>
-                <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 99, background: mode === 'general' ? (D ? '#374151' : '#f3f4f6') : (D ? '#064e3b' : '#d1fae5'), color: mode === 'general' ? textMuted : '#065f46', fontWeight: 500 }}>
+                <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 99, background: mode === 'general' ? (D ? '#374151' : '#f3f4f6') : (D ? '#172554' : '#DBEAFE'), color: mode === 'general' ? textMuted : '#1E3A8A', fontWeight: 500 }}>
                   {mode === 'general' ? 'General' : 'Job match'}
                 </span>
               </div>
@@ -284,7 +284,7 @@ export default function ATSScorePanel({
 
           {/* Breakdown */}
           <div style={{ ...card, padding: 20 }}>
-            <p style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: textMuted, margin: '0 0 16px' }}>Score Breakdown</p>
+            <p style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0, color: textMuted, margin: '0 0 16px' }}>Score Breakdown</p>
             {result.breakdown && Object.entries(result.breakdown).map(([k, v]) => (
               <div key={k} style={{ marginBottom: 16 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
@@ -314,12 +314,12 @@ export default function ATSScorePanel({
           {/* Suggestions */}
           {result.topSuggestions?.length > 0 && (
             <div style={card}>
-              <p style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: textMuted, margin: '0 0 12px' }}>Top Suggestions</p>
+              <p style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0, color: textMuted, margin: '0 0 12px' }}>Top Suggestions</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {result.topSuggestions.map((s, i) => (
                   <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                    <div style={{ width: 20, height: 20, borderRadius: 99, background: D ? '#064e3b' : '#d1fae5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
-                      <span style={{ fontSize: 10, color: '#1D9E75', fontWeight: 700 }}>{i + 1}</span>
+                    <div style={{ width: 20, height: 20, borderRadius: 99, background: D ? '#172554' : '#DBEAFE', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
+                      <span style={{ fontSize: 10, color: '#1D4ED8', fontWeight: 700 }}>{i + 1}</span>
                     </div>
                     <p style={{ fontSize: 12, color: text, margin: 0, lineHeight: 1.6 }}>{s}</p>
                   </div>
@@ -340,7 +340,7 @@ export default function ATSScorePanel({
       {/* Empty state */}
       {!result && !loading && (
         <div style={{ background: bg, border: `1px solid ${borderCol}`, borderRadius: 16, padding: '40px 32px', textAlign: 'center' }}>
-          <div style={{ width: 56, height: 56, borderRadius: 14, background: '#E1F5EE', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontSize: 24 }}>⚡</div>
+          <div style={{ width: 56, height: 56, borderRadius: 14, background: '#DBEAFE', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontSize: 24 }}>⚡</div>
           <p style={{ margin: '0 0 6px', fontSize: 14, fontWeight: 500, color: text }}>Your ATS score will appear here</p>
           <p style={{ margin: 0, fontSize: 13, color: textMuted, lineHeight: 1.6 }}>
             {!resume ? 'Fill in your resume details first, then run the analysis.' : 'Choose a mode above and click Analyze.'}

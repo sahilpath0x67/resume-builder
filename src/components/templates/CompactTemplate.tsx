@@ -8,19 +8,19 @@ export default function CompactTemplate({ resume, dark: D }: { resume: ResumeOut
 
   return (
     <div id="resume-output" style={{
-      maxWidth: 680, margin: '0 auto', background: bg, borderRadius: 14,
-      padding: '28px 36px', fontFamily: 'Inter, sans-serif',
-      fontSize: 12, lineHeight: 1.5, color: textC,
+      width: '210mm', maxWidth: '100%', margin: '0 auto', background: bg, borderRadius: 10, boxSizing: 'border-box',
+      padding: '13mm 15mm', fontFamily: 'Inter, sans-serif',
+      fontSize: 13, lineHeight: 1.45, color: textC,
       boxShadow: D ? '0 1px 3px rgba(0,0,0,0.4)' : '0 1px 3px rgba(0,0,0,0.06)',
     }}>
       {/* Compact header — everything on 2 lines */}
       <div style={{ borderBottom: `2px solid #059669`, paddingBottom: 12, marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8 }}>
           <div>
-            <h1 style={{ fontSize: 22, fontWeight: 700, color: textC, margin: '0 0 2px', letterSpacing: '-0.01em' }}>{resume.name}</h1>
-            {resume.title && <p style={{ fontSize: 12, color: '#059669', fontWeight: 600, margin: 0 }}>{resume.title}</p>}
+            <h1 style={{ fontSize: 26, fontWeight: 700, color: textC, margin: '0 0 2px', letterSpacing: 0 }}>{resume.name}</h1>
+            {resume.title && <p style={{ fontSize: 13, color: '#059669', fontWeight: 600, margin: 0 }}>{resume.title}</p>}
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, fontSize: 10, color: textMuted }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, fontSize: 11, color: textMuted }}>
             {resume.email    && <span>{resume.email}</span>}
             {resume.phone    && <span>{resume.phone}</span>}
             {resume.location && <span>{resume.location}</span>}
@@ -36,7 +36,7 @@ export default function CompactTemplate({ resume, dark: D }: { resume: ResumeOut
         <div>
           {resume.summary && (
             <CSection title="Summary" border={borderCol} accent="#059669">
-              <p style={{ fontSize: 11.5, lineHeight: 1.75, margin: 0, color: textMuted }}>{resume.summary}</p>
+          <p style={{ fontSize: 12.6, lineHeight: 1.6, margin: 0, color: textMuted }}>{resume.summary}</p>
             </CSection>
           )}
 
@@ -45,13 +45,13 @@ export default function CompactTemplate({ resume, dark: D }: { resume: ResumeOut
               {resume.experience.map((exp, i) => (
                 <div key={i} style={{ marginBottom: i < resume.experience.length - 1 ? 12 : 0 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap' }}>
-                    <span style={{ fontWeight: 700, fontSize: 12, color: textC }}>{exp.company}</span>
-                    <span style={{ fontSize: 10, color: textMuted }}>{exp.period}</span>
+                    <span style={{ fontWeight: 700, fontSize: 13, color: textC }}>{exp.company}</span>
+                    <span style={{ fontSize: 10.8, color: textMuted }}>{exp.period}</span>
                   </div>
-                  <p style={{ fontSize: 11, color: '#059669', fontWeight: 600, margin: '1px 0 4px', fontStyle: 'italic' }}>{exp.role}</p>
+                  <p style={{ fontSize: 12, color: '#059669', fontWeight: 600, margin: '1px 0 4px', fontStyle: 'italic' }}>{exp.role}</p>
                   {exp.bullets?.length > 0 && (
                     <ul style={{ paddingLeft: '1.2em', margin: 0 }}>
-                      {exp.bullets.map((b, j) => <li key={j} style={{ fontSize: 11, marginBottom: 2, color: textMuted, lineHeight: 1.6 }}>{b}</li>)}
+                      {exp.bullets.map((b, j) => <li key={j} style={{ fontSize: 12, marginBottom: 2, color: textMuted, lineHeight: 1.5 }}>{b}</li>)}
                     </ul>
                   )}
                 </div>
@@ -68,7 +68,7 @@ export default function CompactTemplate({ resume, dark: D }: { resume: ResumeOut
                 {resume.skills.map((s, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <div style={{ width: 3, height: 3, borderRadius: '50%', background: '#059669', flexShrink: 0 }} />
-                    <span style={{ fontSize: 11, color: textMuted }}>{s}</span>
+                    <span style={{ fontSize: 11.8, color: textMuted }}>{s}</span>
                   </div>
                 ))}
               </div>
@@ -79,18 +79,30 @@ export default function CompactTemplate({ resume, dark: D }: { resume: ResumeOut
             <CSection title="Education" border={borderCol} accent="#059669">
               {resume.education.map((edu, i) => (
                 <div key={i} style={{ marginBottom: 8 }}>
-                  <p style={{ fontWeight: 700, fontSize: 11, color: textC, margin: '0 0 1px' }}>{edu.institution}</p>
-                  <p style={{ fontSize: 10, color: textMuted, fontStyle: 'italic', margin: '0 0 1px' }}>{edu.degree}</p>
-                  <p style={{ fontSize: 10, color: textMuted, margin: 0 }}>{edu.period}</p>
+                  <p style={{ fontWeight: 700, fontSize: 12, color: textC, margin: '0 0 1px' }}>{edu.institution}</p>
+                  <p style={{ fontSize: 11, color: textMuted, fontStyle: 'italic', margin: '0 0 1px' }}>{edu.degree}</p>
+                  <p style={{ fontSize: 10.8, color: textMuted, margin: 0 }}>{edu.period}</p>
                 </div>
               ))}
+            </CSection>
+          )}
+
+          {resume.languages?.length > 0 && (
+            <CSection title="Languages" border={borderCol} accent="#059669">
+              <p style={{ fontSize: 11.5, color: textMuted, margin: 0, lineHeight: 1.55 }}>{resume.languages.join(', ')}</p>
+            </CSection>
+          )}
+
+          {resume.hobbies?.length > 0 && (
+            <CSection title="Hobbies" border={borderCol} accent="#059669">
+              <p style={{ fontSize: 11.5, color: textMuted, margin: 0, lineHeight: 1.55 }}>{resume.hobbies.join(', ')}</p>
             </CSection>
           )}
 
           {resume.achievements?.length > 0 && (
             <CSection title="Achievements" border={borderCol} accent="#059669">
               <ul style={{ paddingLeft: '1.2em', margin: 0 }}>
-                {resume.achievements.map((a, i) => <li key={i} style={{ fontSize: 10.5, marginBottom: 3, color: textMuted, lineHeight: 1.6 }}>{a}</li>)}
+                {resume.achievements.map((a, i) => <li key={i} style={{ fontSize: 11.5, marginBottom: 3, color: textMuted, lineHeight: 1.5 }}>{a}</li>)}
               </ul>
             </CSection>
           )}
@@ -103,7 +115,7 @@ export default function CompactTemplate({ resume, dark: D }: { resume: ResumeOut
 function CSection({ title, children, border, accent }: { title: string; children: React.ReactNode; border: string; accent: string }) {
   return (
     <div style={{ marginBottom: 16 }}>
-      <h2 style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: accent, margin: '0 0 6px', paddingBottom: 3, borderBottom: `1px solid ${border}` }}>{title}</h2>
+      <h2 style={{ fontSize: 10.8, fontWeight: 800, letterSpacing: 0, textTransform: 'uppercase', color: accent, margin: '0 0 6px', paddingBottom: 3, borderBottom: `1px solid ${border}` }}>{title}</h2>
       {children}
     </div>
   );

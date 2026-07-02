@@ -12,10 +12,18 @@ export interface ResumeIssue {
   action: string;
 }
 
+export interface A4Fit {
+  score: number;
+  label: string;
+  detail: string;
+  status: 'sparse' | 'balanced' | 'dense' | 'overflow';
+}
+
 export interface ResumeInsights {
   score: number;
   words: number;
   completion: number;
+  a4Fit: A4Fit;
   issues: ResumeIssue[];
   strengths: string[];
   exportReady: boolean;
@@ -39,12 +47,58 @@ function hasActionVerb(text: string): boolean {
   return ACTION_VERBS.some(verb => lower.startsWith(verb));
 }
 
+function getA4Fit(words: number, bulletCount: number): A4Fit {
+  if (words < 180 || bulletCount < 3) {
+    return {
+      score: 42,
+      label: 'Sparse',
+      detail: 'The page will look empty. Add 2-4 stronger bullets, skills, or achievements before exporting.',
+      status: 'sparse',
+    };
+  }
+
+  if (words < 300) {
+    return {
+      score: 68,
+      label: 'Light',
+      detail: 'Usable for an entry-level CV, but the A4 page will feel stronger with a few more result-focused bullets.',
+      status: 'sparse',
+    };
+  }
+
+  if (words <= 620) {
+    return {
+      score: 92,
+      label: 'Balanced',
+      detail: 'Good one-page density for A4. The resume should scan well without feeling cramped.',
+      status: 'balanced',
+    };
+  }
+
+  if (words <= 780) {
+    return {
+      score: 76,
+      label: 'Dense',
+      detail: 'Still workable, but review long bullets and repeated skills so the page stays easy to scan.',
+      status: 'dense',
+    };
+  }
+
+  return {
+    score: 48,
+    label: 'Overfull',
+    detail: 'Likely to overflow one A4 page. Trim older bullets or move details into a cover letter.',
+    status: 'overflow',
+  };
+}
+
 export function analyzeResume(resume: ResumeOutput | null): ResumeInsights {
   if (!resume) {
     return {
       score: 0,
       words: 0,
       completion: 0,
+      a4Fit: getA4Fit(0, 0),
       issues: [
         {
           id: 'empty',
@@ -71,9 +125,12 @@ export function analyzeResume(resume: ResumeOutput | null): ResumeInsights {
     resume.summary,
     ...bullets,
     ...resume.skills,
+    ...resume.languages,
+    ...resume.hobbies,
     ...resume.achievements,
   ].join(' ');
   const words = wordCount(allText);
+  const a4Fit = getA4Fit(words, bullets.length);
 
   const contactFields = [resume.email, resume.phone, resume.location, resume.linkedin].filter(Boolean).length;
   if (!resume.name || !resume.title) {
@@ -193,12 +250,25 @@ export function analyzeResume(resume: ResumeOutput | null): ResumeInsights {
       id: 'too-short',
       severity: 'medium',
       section: 'experience',
-      title: 'Resume may be too short',
-      detail: `${words} words is light for most applications. Add stronger bullets and detail.`,
+      title: 'A4 page will look sparse',
+      detail: `${words} words is light for most one-page CVs. Add stronger bullets, relevant skills, achievements, or project detail.`,
       action: 'Expand content',
     });
   } else if (words <= 650) {
     strengths.push('Resume length is suitable for a one-page CV.');
+  } else if (words > 780) {
+    issues.push({
+      id: 'too-long',
+      severity: 'medium',
+      section: 'experience',
+      title: 'A4 page may overflow',
+      detail: `${words} words is dense for one page. Trim repeated bullets and keep the strongest achievements.`,
+      action: 'Trim content',
+    });
+  }
+
+  if (a4Fit.status === 'balanced') {
+    strengths.push('A4 page density is balanced.');
   }
 
   const high = issues.filter(issue => issue.severity === 'high').length;
@@ -210,6 +280,7 @@ export function analyzeResume(resume: ResumeOutput | null): ResumeInsights {
     bullets.length >= 3,
     resume.skills.length >= 8,
     resume.education.length > 0,
+    a4Fit.score >= 68,
   ];
   const completion = Math.round((completionItems.filter(Boolean).length / completionItems.length) * 100);
   const score = Math.max(0, Math.min(100, completion - high * 12 - medium * 6));
@@ -218,6 +289,7 @@ export function analyzeResume(resume: ResumeOutput | null): ResumeInsights {
     score,
     words,
     completion,
+    a4Fit,
     issues: issues.sort((a, b) => {
       const weight = { high: 0, medium: 1, low: 2 };
       return weight[a.severity] - weight[b.severity];

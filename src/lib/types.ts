@@ -20,8 +20,11 @@ export interface FormData {
   phone: string;
   location: string;
   linkedin: string;
+  photo: string;
   summary: string;
   skills: string;
+  languages: string;
+  hobbies: string;
   achievements: string;
   experience: Experience[];
   education: Education[];
@@ -34,6 +37,7 @@ export interface ResumeOutput {
   phone: string;
   location: string;
   linkedin: string;
+  photo?: string;
   summary: string;
   experience: {
     company: string;
@@ -47,5 +51,7 @@ export interface ResumeOutput {
     period: string;
   }[];
   skills: string[];
+  languages: string[];
+  hobbies: string[];
   achievements: string[];
 }

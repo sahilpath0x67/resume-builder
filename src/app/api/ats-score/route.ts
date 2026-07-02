@@ -1,5 +1,6 @@
 // src/app/api/ats-score/route.ts
 import { NextRequest } from 'next/server';
+import { parseAIJson } from '@/lib/aiJson';
 import { getModel, checkRateLimit, getCached, setCached, makeCacheKey, friendlyError } from '@/lib/gemini';
 
 export async function POST(request: NextRequest) {
@@ -57,8 +58,7 @@ Return:
 
     const result = await model.generateContent(prompt);
     const text = result.response.text();
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : text);
+    const parsed = parseAIJson<{ overallScore?: number; breakdown?: unknown }>(text);
 
     if (!parsed.overallScore || !parsed.breakdown) {
       throw new Error('Invalid response from AI.');

@@ -50,8 +50,8 @@ export default function CoverLetterPanel({
     URL.revokeObjectURL(url);
   };
 
-  const words = coverLetter.trim() ? coverLetter.trim().split(/\s+/).length : 0;
-  const hasJobDesc = jobDesc.trim().length > 0;
+  const words = (coverLetter ?? '').trim() ? (coverLetter ?? '').trim().split(/\s+/).length : 0;
+  const hasJobDesc = (jobDesc ?? '').trim().length > 0;
 
   const useTemplateDraft = () => {
     if (!resume) return;
@@ -72,6 +72,7 @@ export default function CoverLetterPanel({
     background: bg,
     border: `1px solid ${borderCol}`,
     borderRadius: 16,
+    minWidth: 0,
     padding: 20,
     marginBottom: 16,
   };
@@ -114,7 +115,7 @@ export default function CoverLetterPanel({
   };
 
   return (
-    <div style={{ maxWidth: 680, margin: '0 auto' }}>
+    <div className="cover-letter-panel" style={{ maxWidth: 680, margin: '0 auto', width: '100%' }}>
 
       {/* ── CONFIG CARD ── */}
       <div style={cardStyle}>
@@ -122,7 +123,7 @@ export default function CoverLetterPanel({
         {/* Header row */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
           <div style={{
-            width: 32, height: 32, borderRadius: 8, background: '#1D9E75',
+            width: 32, height: 32, borderRadius: 8, background: '#1D4ED8',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             color: '#fff', fontSize: 14, flexShrink: 0,
           }}>✉</div>
@@ -137,8 +138,8 @@ export default function CoverLetterPanel({
           {/* Resume status badge */}
           <div style={{
             fontSize: 11, fontWeight: 500, padding: '4px 10px', borderRadius: 99,
-            background: resume ? '#d1fae5' : D ? '#3b1e06' : '#fef3c7',
-            color: resume ? '#065f46' : D ? '#fbbf24' : '#92400e',
+            background: resume ? '#DBEAFE' : D ? '#3b1e06' : '#fef3c7',
+            color: resume ? '#1E3A8A' : D ? '#fbbf24' : '#92400e',
             flexShrink: 0,
           }}>
             {resume ? '✓ Resume ready' : '⚠ Fill resume first'}
@@ -146,10 +147,10 @@ export default function CoverLetterPanel({
         </div>
 
         {/* Company + Hiring manager */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+        <div className="cover-letter-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
           <div>
             <label style={labelStyle}>
-              Company name <span style={{ color: '#1D9E75' }}>*</span>
+              Company name <span style={{ color: '#1D4ED8' }}>*</span>
             </label>
             <input
               style={inputStyle}
@@ -172,7 +173,7 @@ export default function CoverLetterPanel({
         {/* Tone selector */}
         <div style={{ marginBottom: 14 }}>
           <label style={labelStyle}>Tone</label>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+          <div className="cover-letter-tone-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
             {TONES.map(opt => {
               const active = tone === opt.value;
               return (
@@ -186,8 +187,8 @@ export default function CoverLetterPanel({
                     alignItems: 'flex-start',
                     padding: '10px 12px',
                     borderRadius: 10,
-                    border: `1.5px solid ${active ? '#1D9E75' : borderCol}`,
-                    background: active ? (D ? '#064e3b' : '#f0fdf4') : inputBg,
+                    border: `1.5px solid ${active ? '#1D4ED8' : borderCol}`,
+                    background: active ? (D ? '#172554' : '#EFF6FF') : inputBg,
                     cursor: 'pointer',
                     textAlign: 'left',
                     fontFamily: 'inherit',
@@ -196,7 +197,7 @@ export default function CoverLetterPanel({
                 >
                   <span style={{
                     fontSize: 12, fontWeight: 600,
-                    color: active ? '#1D9E75' : text,
+                    color: active ? '#1D4ED8' : text,
                   }}>
                     {opt.label}
                   </span>
@@ -214,7 +215,7 @@ export default function CoverLetterPanel({
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
             <label style={{ ...labelStyle, marginBottom: 0 }}>Job description</label>
             {hasJobDesc && (
-              <span style={{ fontSize: 11, color: '#1D9E75', fontWeight: 500 }}>
+              <span style={{ fontSize: 11, color: '#1D4ED8', fontWeight: 500 }}>
                 ✓ Will be used for tailoring
               </span>
             )}
@@ -234,7 +235,7 @@ export default function CoverLetterPanel({
         </div>
 
         {/* Generate buttons */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        <div className="cover-letter-actions" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
           <button
             onClick={useTemplateDraft}
             disabled={!resume}
@@ -242,9 +243,9 @@ export default function CoverLetterPanel({
               width: '100%',
               padding: '11px 0',
               borderRadius: 12,
-              border: `1px solid rgba(29,158,117,0.45)`,
+              border: `1px solid rgba(29,78,216,0.45)`,
               background: 'transparent',
-              color: '#1D9E75',
+              color: '#1D4ED8',
               fontSize: 13,
               fontWeight: 500,
               cursor: !resume ? 'not-allowed' : 'pointer',
@@ -262,7 +263,7 @@ export default function CoverLetterPanel({
               padding: '11px 0',
               borderRadius: 12,
               border: 'none',
-              background: loading ? '#5DCAA5' : '#1D9E75',
+              background: loading ? '#93C5FD' : '#1D4ED8',
               color: '#fff',
               fontSize: 13,
               fontWeight: 500,
@@ -296,7 +297,7 @@ export default function CoverLetterPanel({
           overflow: 'hidden',
         }}>
           {/* Toolbar */}
-          <div style={{
+          <div className="cover-letter-result-toolbar" style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -304,10 +305,10 @@ export default function CoverLetterPanel({
             borderBottom: `1px solid ${borderSub}`,
             background: bgSubtle,
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div className="cover-letter-meta" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{
                 fontSize: 11, fontWeight: 600,
-                textTransform: 'uppercase', letterSpacing: '0.06em',
+                textTransform: 'uppercase', letterSpacing: 0,
                 color: textMuted,
               }}>
                 Cover Letter
@@ -320,13 +321,13 @@ export default function CoverLetterPanel({
               </span>
               <span style={{
                 fontSize: 11, padding: '2px 8px', borderRadius: 99,
-                background: D ? '#064e3b' : '#d1fae5', color: '#065f46',
+                background: D ? '#172554' : '#DBEAFE', color: '#1E3A8A',
                 textTransform: 'capitalize',
               }}>
                 {tone}
               </span>
             </div>
-            <div style={{ display: 'flex', gap: 6 }}>
+            <div className="cover-letter-result-actions" style={{ display: 'flex', gap: 6 }}>
               <button onClick={downloadTxt} style={smallBtnStyle}>
                 ↓ .txt
               </button>
@@ -334,9 +335,9 @@ export default function CoverLetterPanel({
                 onClick={copy}
                 style={{
                   ...smallBtnStyle,
-                  background: copied ? (D ? '#064e3b' : '#f0fdf4') : 'transparent',
-                  borderColor: copied ? '#1D9E75' : borderCol,
-                  color: copied ? '#1D9E75' : textMuted,
+                  background: copied ? (D ? '#172554' : '#EFF6FF') : 'transparent',
+                  borderColor: copied ? '#1D4ED8' : borderCol,
+                  color: copied ? '#1D4ED8' : textMuted,
                 }}
               >
                 {copied ? '✓ Copied!' : '⧉ Copy'}
@@ -348,7 +349,7 @@ export default function CoverLetterPanel({
           <div style={{ padding: '32px 36px' }}>
             <div style={{
               width: 48, height: 3, borderRadius: 99,
-              background: '#1D9E75', marginBottom: 24,
+              background: '#1D4ED8', marginBottom: 24,
             }} />
             <div style={{
               fontSize: 13.5,
@@ -356,7 +357,7 @@ export default function CoverLetterPanel({
               color: text,
               whiteSpace: 'pre-wrap',
               fontFamily: 'Georgia, "Times New Roman", serif',
-              letterSpacing: '0.01em',
+              letterSpacing: 0,
             }}>
               {coverLetter}
             </div>
@@ -382,12 +383,12 @@ export default function CoverLetterPanel({
           textAlign: 'center',
         }}>
           <div style={{
-            width: 56, height: 56, borderRadius: 14, background: '#E1F5EE',
+            width: 56, height: 56, borderRadius: 14, background: '#DBEAFE',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             margin: '0 auto 16px',
           }}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
-              stroke="#1D9E75" strokeWidth="1.5" strokeLinecap="round">
+              stroke="#1D4ED8" strokeWidth="1.5" strokeLinecap="round">
               <path d="M21 15.5v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2" />
               <polyline points="17 8 12 3 7 8" />
               <line x1="12" y1="3" x2="12" y2="15" />
@@ -413,7 +414,7 @@ export default function CoverLetterPanel({
             }}>
               <p style={{
                 margin: '0 0 10px', fontSize: 11, fontWeight: 600,
-                color: textMuted, textTransform: 'uppercase', letterSpacing: '0.05em',
+                color: textMuted, textTransform: 'uppercase', letterSpacing: 0,
               }}>
                 Tips for a great letter
               </p>
@@ -423,7 +424,7 @@ export default function CoverLetterPanel({
                 'Choose your tone to match the company culture',
               ].map(tip => (
                 <div key={tip} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 8 }}>
-                  <span style={{ color: '#1D9E75', fontSize: 11, marginTop: 1, flexShrink: 0 }}>✦</span>
+                  <span style={{ color: '#1D4ED8', fontSize: 11, marginTop: 1, flexShrink: 0 }}>✦</span>
                   <span style={{ fontSize: 12, color: textMuted }}>{tip}</span>
                 </div>
               ))}
